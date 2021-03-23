@@ -1,0 +1,33 @@
+{
+  "name": "dynamodb-expressions",
+  "version": "1.0.0",
+  "description": "Helpers for creating DynamoDB expressions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext js,ts --max-warnings 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/henhal/dynamodb-expressions.git"
+  },
+  "keywords": [
+    "DynamoDB",
+    "expressions",
+    "update",
+    "conditions",
+    "UpdateExpression",
+    "ConditionExpression"
+  ],
+  "author": "Henrik Hall",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/henhal/dynamodb-expressions/issues"
+  },
+  "homepage": "https://github.com/henhal/dynamodb-expressions#readme"
+}
