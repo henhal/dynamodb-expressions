@@ -1,2 +1,3 @@
-export * from './ConditionExpressionBuilder'
-export * from './UpdateExpressionBuilder'
+export * from './Condition'
+export * from './UpdateAction'
+
