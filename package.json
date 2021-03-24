@@ -11,7 +11,8 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "lint": "eslint src --ext js,ts --max-warnings 0",
-    "test": "jest --config src/test/jest.config.js"
+    "test": "jest --config src/test/jest.config.js",
+    "prepublish": "yarn build && yarn test"
   },
   "repository": {
     "type": "git",
