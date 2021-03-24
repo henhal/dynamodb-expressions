@@ -29,7 +29,7 @@ describe('Condition tests', () => {
 
   it('Should build a composite condition', () => {
     matchExpression(
-        Condition.composite().or({a: 42, b: 'foo'}, {a: 43, b: 'bar'}),
+        Condition.or({a: 42, b: 'foo'}, {a: 43, b: 'bar'}),
         /\(#a = (:cond_.*) AND #b = (:cond_.*) OR #a = (:cond_.*) AND #b = (:cond_.*)\)/,
         {'#a': 'a', '#b': 'b'},
         [42, 'foo', 43, 'bar']);
@@ -37,7 +37,7 @@ describe('Condition tests', () => {
 
   it('Should build a nested composite condition', () => {
     matchExpression(
-        Condition.composite()
+        Condition
             .or({a: 42, b: 'foo'}, {a: 43, b: 'bar'})
             .and({a: 44, b: 'baz'}, {a: 45, b: 'qux'}),
         /\(\(#a = (:cond_.*) AND #b = (:cond_.*) OR #a = (:cond_.*) AND #b = (:cond_.*)\) AND #a = (:cond_.*) AND #b = (:cond_.*) AND #a = (:cond_.*) AND #b = (:cond_.*)\)/,
@@ -45,5 +45,13 @@ describe('Condition tests', () => {
         [42, 'foo', 43, 'bar', 44, 'baz', 45, 'qux']);
   });
 
-
+  it('Should build a deeply nested composite condition', () => {
+    matchExpression(
+        Condition
+            .or({a: 42, b: 'foo'}, {a: 43, b: 'bar'})
+            .and({a: 44, b: 'baz'}, {a: 45, b: 'qux'}, Condition.or({a: 46, b: 'quux'}, {a: 47, b: 'quuz'})),
+        /\(\(#a = (:cond_.*) AND #b = (:cond_.*) OR #a = (:cond_.*) AND #b = (:cond_.*)\) AND #a = (:cond_.*) AND #b = (:cond_.*) AND #a = (:cond_.*) AND #b = (:cond_.*) AND \(#a = (:cond_.*) AND #b = (:cond_.*) OR #a = (:cond_.*) AND #b = (:cond_.*)\)\)/,
+        {'#a': 'a', '#b': 'b'},
+        [42, 'foo', 43, 'bar', 44, 'baz', 45, 'qux', 46, 'quux', 47, 'quuz']);
+  });
 });

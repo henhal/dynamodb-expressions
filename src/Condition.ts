@@ -87,14 +87,23 @@ export class Condition<T> {
     return Condition.func('contains', operand);
   }
 
-  static composite<T>():CompositeCondition<T> {
-    return new CompositeCondition<T>();
+  static and<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
+    return new CompositeCondition<T>('AND', operands);
+  }
+
+  static or<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
+    return new CompositeCondition<T>('OR', operands);
   }
 }
 
 export class CompositeCondition<T> {
-  private [OPERATOR]: Operator = 'AND';
-  private [OPERANDS]: Array<ConditionSet<T>> = [];
+  private readonly [OPERATOR]: Operator;
+  private readonly [OPERANDS]: Array<ConditionSet<T>> = [];
+
+  constructor(operator: Operator, operands: Array<ConditionSet<T>>) {
+    this[OPERATOR] = operator;
+    this[OPERANDS] = operands;
+  }
 
   get operator() {
     return this[OPERATOR];
@@ -104,24 +113,12 @@ export class CompositeCondition<T> {
     return this[OPERANDS];
   }
 
-  private push(operator: Operator, operands: Array<ConditionSet<T>>): CompositeCondition<T> {
-    if (this[OPERATOR] === operator || this[OPERANDS].length === 0) {
-      // Same operator, or no operands yet so we may change
-      this[OPERATOR] = operator;
-      this[OPERANDS].push(...operands);
-      return this;
-    }
-
-    // Create nested condition from this and the new operands
-    return new CompositeCondition<T>().push(operator, [this, ...operands]);
-  }
-
   and(...operands: Array<ConditionSet<T>>): CompositeCondition<T> {
-    return this.push('AND', operands);
+    return new CompositeCondition<T>('AND', [this, ...operands]);
   }
 
   or(...operands: Array<ConditionSet<T>>): CompositeCondition<T> {
-    return this.push('OR', operands);
+    return new CompositeCondition<T>('OR', [this, ...operands]);
   }
 }
 
