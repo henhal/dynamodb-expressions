@@ -10,17 +10,17 @@ export class ConditionExpressionBuilder<T> extends ExpressionBuilder<ConditionAt
           .build(operand)).join(` ${conditions.operator} `)})`;
     }
 
-    for (const [path, value] of Object.entries(conditions)) {
-      const action = value instanceof Condition ? value : Condition.eq(value);
+    for (const [key, value] of Object.entries(conditions)) {
+      const condition = value instanceof Condition ? value : Condition.eq(value);
 
-      action.build(path, this);
+      condition.build(key, this);
     }
 
     return `${this.conditions.join(' AND ')}` || undefined;
   }
 
-  addValue(name: string, value: unknown): string {
-    return super.addValue(name, value, 'cond_');
+  protected addValue(value: unknown, prefix = ''): string {
+    return super.addValue(value, `cond_${prefix}`);
   }
 
   addCondition(condition: string): void {

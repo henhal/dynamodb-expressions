@@ -18,8 +18,8 @@ export class UpdateExpressionBuilder<T extends Record<string, any>> extends Expr
         .join(' ') || undefined;
   }
 
-  addValue(name: string, value: unknown) {
-    return super.addValue(name, value, 'val_');
+  protected addValue(value: unknown, prefix = '') {
+    return super.addValue(value, `val_${prefix}`);
   }
 
   addAction(type: ActionType, action: string) {

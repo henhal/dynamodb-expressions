@@ -18,8 +18,55 @@ export abstract class ExpressionBuilder<A extends Record<string, unknown>> {
   constructor(readonly params: Partial<Params>) {
   }
 
-  addName(path: string, prefix = ''): string {
+  addOperand(operand: unknown, defaultType: 'name' | 'value', prefix = '') {
+    if (typeof operand === 'string') {
+      if (operand[0] === ':') {
+        // Explicit literal, needed if value contains #
+        return this.addValue(operand.substring(1), prefix);
+      } else if (operand.includes('#')) {
+        // Expression with attribute names
+        return operand.replace(/#[^)]+/, s => this.addName(s.substring(1), prefix));
+      }
+    }
+
+    if (defaultType === 'name') {
+      // Raw name where name is expected unless : is used
+      return this.addName(String(operand), prefix);
+    } else {
+      // Raw value where value is expected unless # is used
+      return this.addValue(operand, prefix);
+    }
+
+    //   const names = operand.match(/#([^)]+)/);
+    //
+    //   if (names) {
+    //     names
+    //   }
+    //     type = 'value';
+    //     operand = operand.substring(1);
+    //   } else if ({
+    //     return operand.replace(/#[^)]+/, this.s => s.substring(1))
+    //     type = 'name';
+    //     operand = operand.substring(1);
+    //   } else
+    // }
+    //
+    // if (type === 'name') {
+    //   return this.addName(String(operand), prefix);
+    // } else {
+    //   return this.addValue('', operand, prefix);
+    // }
+  }
+
+  protected addName(path: string, prefix = ''): string {
     const names = this.params.ExpressionAttributeNames = this.params.ExpressionAttributeNames || {};
+
+    // foo => literal foo
+    // :foo => literal foo
+    // :#foo => literal #foo
+    // #foo => attribute name foo
+    // #size(foo) => size(attribute name foo)
+
 
     return path.split('.').map(part => {
       const [key, ...elements] = part.split('[');
@@ -30,10 +77,10 @@ export abstract class ExpressionBuilder<A extends Record<string, unknown>> {
     }).join('.');
   }
 
-  addValue(path: string, value: unknown, prefix = ''): string {
+  protected addValue(value: unknown, prefix = ''): string {
     const values = this.params.ExpressionAttributeValues = this.params.ExpressionAttributeValues || {};
 
-    return addUniqueMapping(values, `:${prefix}${path.replace(/[.\[\]]/g, '_')}`, value)
+    return addUniqueMapping(values, `:${prefix}`, value)
   }
 
   abstract build(attributes: A): string | undefined;

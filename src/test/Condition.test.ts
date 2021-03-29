@@ -1,5 +1,6 @@
 import {buildConditionExpression, Condition, ConditionSet} from '../Condition';
 import {ConditionExpressionBuilder} from '../ConditionExpressionBuilder';
+import {Operand} from '../Operand';
 
 function matchExpression(c: ConditionSet<unknown>, exprPattern: RegExp, names: Record<string, string>, values: unknown[]) {
   const builder = new ConditionExpressionBuilder({});
@@ -12,9 +13,9 @@ function matchExpression(c: ConditionSet<unknown>, exprPattern: RegExp, names: R
   expect(builder.params.ExpressionAttributeNames).toEqual(names);
 
   const [, ...escapedValues] = result;
-  expect(builder.params.ExpressionAttributeValues).toEqual(Object
+  expect(builder.params.ExpressionAttributeValues).toEqual(values.length ?Object
       .fromEntries(escapedValues
-      .map((v, i) => [v, values[i]])));
+      .map((v, i) => [v, values[i]])) : undefined);
 
 }
 describe('Condition tests', () => {
@@ -54,4 +55,43 @@ describe('Condition tests', () => {
         {'#a': 'a', '#b': 'b'},
         [42, 'foo', 43, 'bar', 44, 'baz', 45, 'qux', 46, 'quux', 47, 'quuz']);
   });
+
+  it('Should build a condition with explicit hash prefix on attribute name', () => {
+    matchExpression(
+        {'#a': Condition.lt(5)},
+        /#a < (:cond_.*)/,
+        {'#a': 'a'},
+        [5]);
+  });
+  it('Should build a condition with size function', () => {
+    matchExpression(
+        {[Operand.size('a')]: Condition.lt(5)},
+        /size\(#a\) < (:cond_.*)/,
+        {'#a': 'a'},
+        [5]);
+  });
+  it('Should build a condition with operand referring to attribute', () => {
+    matchExpression(
+        {'#a': Condition.lt(Operand.get('b'))},
+        /#a < #b/,
+        {'#a': 'a', '#b': 'b'},
+        []);
+  });
+
+  it('Should build a condition with an escaped value including a #', () => {
+    matchExpression(
+        {'#a': Condition.eq(':#b')},
+        /#a = (:cond_.*)/,
+        {'#a': 'a'},
+        ['#b']);
+  });
+
+  it('Should build a condition with an escaped value including a :', () => {
+    matchExpression(
+        {'#a': Condition.eq('::b')},
+        /#a = (:cond_.*)/,
+        {'#a': 'a'},
+        [':b']);
+  });
+
 });
