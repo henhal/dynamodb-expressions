@@ -24,7 +24,8 @@ export class Condition<T> {
 
   private static comparator<T>(operator: Comparator, value: T): Condition<T> {
     return new Condition<T>((key, builder) =>
-        builder.addCondition(`${builder.addOperand(key, 'name')} ${operator} ${builder.addOperand(value, 'value')}`));
+        builder.addCondition(`${builder.addOperand(key, 'name')} ${operator} ${
+          builder.addOperand(value, 'value')}`));
   }
 
   static eq<T>(value: T): Condition<T> {

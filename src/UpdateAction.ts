@@ -41,7 +41,7 @@ export class SetValue {
   }
 
   static value<T>(value: T): SetValue {
-    return new SetValue((key, builder) => builder.addOperand(value, 'value', 'TODO'));
+    return new SetValue((key, builder) => builder.addOperand(value, 'value', 'set'));
   }
 
   static add(n1: number | string, n2: number | string): SetValue {
@@ -56,7 +56,7 @@ export class SetValue {
   static subtract(n1: number | string, n2: number | string): SetValue {
     return new SetValue((key, builder) => {
       const operands = [n1, n2].map((n, i) =>
-          typeof n === 'string' ? builder.addOperand(n, 'name') : builder.addOperand(n, 'value', `subtract${i}`));
+          typeof n === 'string' ? builder.addOperand(n, 'name') : builder.addOperand(n, 'value', `sub${i}`));
 
       return operands.join(' - ');
     });
