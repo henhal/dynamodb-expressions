@@ -17,6 +17,10 @@ export class UpdateAction<T> {
   }) {
   }
 
+  static from<T>(value: UpdateAction<T> | T) {
+    return value instanceof UpdateAction ? value : UpdateAction.set(value);
+  }
+
   static set<T>(value: T | SetValue): UpdateAction<T> {
     return new UpdateAction((key, builder) => {
       const v = value instanceof SetValue ? value : SetValue.value(value);

@@ -8,9 +8,10 @@ export class UpdateExpressionBuilder<T extends Record<string, any>> extends Expr
 
   build(attributes: UpdateAttributes<T>): string | undefined {
     for (const [path, value] of Object.entries(attributes)) {
-      const action = value instanceof UpdateAction ? value : UpdateAction.set(value);
+      const action = UpdateAction.from(value);
+      const {type, expression} = action.build(path, this);
 
-      action.build(path, this);
+      this.addAction(type, expression);
     }
 
     return [...this.actions.entries()]

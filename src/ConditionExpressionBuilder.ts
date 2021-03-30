@@ -6,8 +6,12 @@ export class ConditionExpressionBuilder<T> extends ExpressionBuilder<ConditionAt
 
   build(conditions: ConditionSet<T>): string | undefined {
     if (conditions instanceof CompositeCondition) {
-      return `(${conditions.operands.map(operand => new ConditionExpressionBuilder(this.params)
-          .build(operand)).join(` ${conditions.operator} `)})`;
+      const expressions = conditions.operands
+          .map(operand => new ConditionExpressionBuilder(this.params).build(operand))
+          .filter(expression => expression);
+
+      const joined = expressions.join(` ${conditions.operator} `);
+      return expressions.length > 1 ? `(${joined})` : joined;
     }
 
     for (const [key, value] of Object.entries(conditions)) {

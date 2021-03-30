@@ -21,11 +21,13 @@ export abstract class ExpressionBuilder<A extends Record<string, unknown>> imple
   }
 
   addOperand(operand: unknown, defaultType: 'name' | 'value', prefix = '') {
+    console.log(`addOperand ${operand}, ${defaultType}, ${prefix}`);
     if (typeof operand === 'string') {
       if (operand[0] === ':') {
         // Explicit literal, needed if value contains #
         return this.addValue(operand.substring(1), prefix);
       } else if (operand.includes('#')) {
+        console.log(`found hash`)
         // Expression with attribute names
         return operand.replace(/#[^)]+/, s => this.addName(s.substring(1), prefix));
       }
@@ -41,6 +43,7 @@ export abstract class ExpressionBuilder<A extends Record<string, unknown>> imple
   }
 
   protected addName(path: string, prefix = ''): string {
+    console.log(`addName ${path}`)
     const names = this.params.ExpressionAttributeNames = this.params.ExpressionAttributeNames || {};
 
     return path.split('.').map(part => {

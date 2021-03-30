@@ -29,6 +29,19 @@ export class Condition<T> {
     }));
   }
 
+  private static func<T>(func: Func, ...args: unknown[]): Condition<T> {
+    return new Condition<T>((key, builder) => ({
+      expression: `${func}(${[
+        builder.addOperand(key, 'name'),
+        ...args.map((arg, i) => builder.addOperand(arg, 'value', `${func}_arg${i}`)),
+      ].join(', ')})`
+    }));
+  }
+
+  static from<T>(c: ConditionValue<T>): Condition<T> {
+    return c instanceof Condition ? c : Condition.eq(c);
+  }
+
   static eq<T>(value: T): Condition<T> {
     return Condition.comparator('=', value);
   }
@@ -64,15 +77,6 @@ export class Condition<T> {
     return new Condition<T>((key, builder) => ({
       expression: `${builder.addOperand(key, 'name')} IN (${
           operands.map((operand, i) => builder.addOperand(operand, 'value', `in${i}`)).join(', ')})`
-    }));
-  }
-
-  private static func<T>(func: Func, ...args: unknown[]): Condition<T> {
-    return new Condition<T>((key, builder) => ({
-      expression: `${func}(${[
-        builder.addOperand(key, 'name'),
-        ...args.map((arg, i) => builder.addOperand(arg, 'value', `${func}_arg${i}`)),
-      ].join(', ')})`
     }));
   }
 
@@ -116,10 +120,6 @@ export class Condition<T> {
 
   static or<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
     return new CompositeCondition<T>('OR', operands);
-  }
-
-  static from<T>(c: ConditionValue<T>): Condition<T> {
-    return c instanceof Condition ? c : Condition.eq(c);
   }
 }
 
