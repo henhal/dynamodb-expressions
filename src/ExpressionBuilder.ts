@@ -1,3 +1,5 @@
+import ParamsBuilder from './ParamsBuilder';
+
 export type Params = {
   ExpressionAttributeNames: Record<string, string>;
   ExpressionAttributeValues: Record<string, unknown>;
@@ -14,7 +16,7 @@ function addUniqueMapping(values: Record<string, unknown>, key: string, value: u
   return uniqueKey;
 }
 
-export abstract class ExpressionBuilder<A extends Record<string, unknown>> {
+export abstract class ExpressionBuilder<A extends Record<string, unknown>> implements ParamsBuilder {
   constructor(readonly params: Partial<Params>) {
   }
 

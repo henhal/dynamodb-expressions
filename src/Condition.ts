@@ -1,5 +1,6 @@
 import {ConditionExpressionBuilder} from './ConditionExpressionBuilder';
 import {Params} from './ExpressionBuilder';
+import ParamsBuilder from './ParamsBuilder';
 
 type Comparator = '=' | '<>' | '<' | '<=' | '>' | '>=';
 type Func = 'attribute_exists' | 'attribute_not_exists' | 'attribute_type' | 'begins_with' | 'contains' | 'size';
@@ -19,13 +20,13 @@ export type ConditionAttributes<T> = {
 export type ConditionSet<T> = ConditionAttributes<T> | CompositeCondition<T>;
 
 export class Condition<T> {
-  private constructor(readonly build: (key: string, builder: ConditionExpressionBuilder<unknown>) => void) {
+  private constructor(readonly build: (key: string, builder: ParamsBuilder) => {expression: string;}) {
   }
 
   private static comparator<T>(operator: Comparator, value: T): Condition<T> {
-    return new Condition<T>((key, builder) =>
-        builder.addCondition(`${builder.addOperand(key, 'name')} ${operator} ${
-          builder.addOperand(value, 'value')}`));
+    return new Condition<T>((key, builder) => ({
+      expression: `${builder.addOperand(key, 'name')} ${operator} ${builder.addOperand(value, 'value')}`
+    }));
   }
 
   static eq<T>(value: T): Condition<T> {
@@ -53,23 +54,26 @@ export class Condition<T> {
   }
 
   static between<T>(...operands: [T, T]): Condition<T> {
-    return new Condition<T>((key, builder) =>
-        builder.addCondition(`${builder.addOperand(key, 'name')} BETWEEN ${
-            operands.map((operand, i) => builder.addOperand(operand, 'value', `between${i}`)).join(' AND ')}`));
+    return new Condition<T>((key, builder) => ({
+      expression: `${builder.addOperand(key, 'name')} BETWEEN ${
+          operands.map((operand, i) => builder.addOperand(operand, 'value', `between${i}`)).join(' AND ')}`
+    }));
   }
 
   static in<T>(operands: T[]): Condition<T> {
-    return new Condition<T>((key, builder) =>
-        builder.addCondition(`${builder.addOperand(key, 'name')} IN (${
-            operands.map((operand, i) => builder.addOperand(operand, 'value', `in${i}`)).join(', ')})`));
+    return new Condition<T>((key, builder) => ({
+      expression: `${builder.addOperand(key, 'name')} IN (${
+          operands.map((operand, i) => builder.addOperand(operand, 'value', `in${i}`)).join(', ')})`
+    }));
   }
 
   private static func<T>(func: Func, ...args: unknown[]): Condition<T> {
-    return new Condition<T>((key, builder) =>
-        builder.addCondition(`${func}(${[
-          builder.addOperand(key, 'name'),
-          ...args.map((arg, i) => builder.addOperand(arg, 'value', `${func}_arg${i}`)),
-        ].join(', ')})`));
+    return new Condition<T>((key, builder) => ({
+      expression: `${func}(${[
+        builder.addOperand(key, 'name'),
+        ...args.map((arg, i) => builder.addOperand(arg, 'value', `${func}_arg${i}`)),
+      ].join(', ')})`
+    }));
   }
 
   static attributeExists<T>(): Condition<T> {
@@ -84,16 +88,26 @@ export class Condition<T> {
     return Condition.func('attribute_type', type);
   }
 
-  static beginsWith<T>(substr: string): Condition<T> {
+  static beginsWith<T extends string>(substr: string): Condition<T> {
     return Condition.func('begins_with', substr);
   }
 
-  static contains<T>(operand: unknown): Condition<T> {
+  static contains<T extends string | Set<unknown>>(operand: T): Condition<T> {
     return Condition.func('contains', operand);
   }
 
   static size<T>(): Condition<T> {
     return Condition.func('size');
+  }
+
+  static not<T>(c: ConditionValue<T>): Condition<T> {
+    return new Condition((key, builder) => {
+      const {expression} = Condition.from(c).build(key, builder);
+
+      return {
+        expression: `NOT (${expression})`
+      };
+    });
   }
 
   static and<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
@@ -102,6 +116,10 @@ export class Condition<T> {
 
   static or<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
     return new CompositeCondition<T>('OR', operands);
+  }
+
+  static from<T>(c: ConditionValue<T>): Condition<T> {
+    return c instanceof Condition ? c : Condition.eq(c);
   }
 }
 

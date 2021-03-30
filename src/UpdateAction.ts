@@ -1,5 +1,6 @@
 import {Params} from './ExpressionBuilder';
-import {UpdateExpressionBuilder} from './UpdateExpressionBuilder';
+import {ActionType, UpdateExpressionBuilder} from './UpdateExpressionBuilder';
+import ParamsBuilder from './ParamsBuilder';
 
 type UpdateValue<V> = V | UpdateAction<V | void>;
 
@@ -10,34 +11,47 @@ export type UpdateAttributes<T> = {
 }
 
 export class UpdateAction<T> {
-  private constructor(readonly build: (key: string, builder: UpdateExpressionBuilder<any>) => void) {}
+  private constructor(readonly build: (key: string, builder: ParamsBuilder) => {
+    type: ActionType;
+    expression: string;
+  }) {
+  }
 
   static set<T>(value: T | SetValue): UpdateAction<T> {
     return new UpdateAction((key, builder) => {
       const v = value instanceof SetValue ? value : SetValue.value(value);
 
-      return builder.addAction('SET', `${builder.addOperand(key, 'name')} = ${v.build(key, builder)}`);
+      return {
+        type: 'SET',
+        expression: `${builder.addOperand(key, 'name')} = ${v.build(key, builder)}`
+      }
     });
   }
 
   static remove(): UpdateAction<void> {
-    return new UpdateAction((key, builder) =>
-        builder.addAction('REMOVE', `${builder.addOperand(key, 'name')}`));
+    return new UpdateAction((key, builder) => ({
+      type: 'REMOVE',
+      expression: `${builder.addOperand(key, 'name')}`
+    }));
   }
 
   static add<T extends number | Set<unknown>>(value: T): UpdateAction<T> {
-    return new UpdateAction((key, builder) =>
-        builder.addAction('ADD', `${builder.addOperand(key, 'name')} ${builder.addOperand(value, 'value', 'add')}`))
+    return new UpdateAction((key, builder) => ({
+      type: 'ADD',
+      expression: `${builder.addOperand(key, 'name')} ${builder.addOperand(value, 'value', 'add')}`
+    }));
   }
 
   static delete<T extends Set<unknown>>(value: T): UpdateAction<T> {
-    return new UpdateAction((key, builder) =>
-        builder.addAction('DELETE', `${builder.addOperand(key, 'name')} ${builder.addOperand(value, 'value', 'delete')}`));
+    return new UpdateAction((key, builder) => ({
+      type: 'DELETE',
+      expression: `${builder.addOperand(key, 'name')} ${builder.addOperand(value, 'value', 'delete')}`
+    }));
   }
 }
 
 export class SetValue {
-  private constructor(readonly build: (key: string, builder: UpdateExpressionBuilder<any>) => string) {
+  private constructor(readonly build: (key: string, builder: ParamsBuilder) => string) {
   }
 
   static value<T>(value: T): SetValue {

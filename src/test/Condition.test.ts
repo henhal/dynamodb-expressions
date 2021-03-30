@@ -94,5 +94,12 @@ describe('Condition tests', () => {
         [':b']);
   });
 
+  it('Should build a condition with NOT', () => {
+    matchExpression(
+        {a: Condition.not(Condition.gt(5))},
+        /NOT \(#a > (:cond_.*)\)/,
+        {'#a': 'a'},
+        [5]);
+  });
+
 });
-              

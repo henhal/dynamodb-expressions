@@ -1,7 +1,7 @@
 import {ExpressionBuilder} from './ExpressionBuilder';
 import {UpdateAction, UpdateAttributes} from './UpdateAction';
 
-type ActionType = 'SET' | 'REMOVE' | 'ADD' | 'DELETE';
+export type ActionType = 'SET' | 'REMOVE' | 'ADD' | 'DELETE';
 
 export class UpdateExpressionBuilder<T extends Record<string, any>> extends ExpressionBuilder<UpdateAttributes<T>> {
   private readonly actions = new Map<ActionType, string[]>();
