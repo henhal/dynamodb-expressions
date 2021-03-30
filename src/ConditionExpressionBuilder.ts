@@ -15,9 +15,11 @@ export class ConditionExpressionBuilder<T> extends ExpressionBuilder<ConditionAt
     }
 
     for (const [key, value] of Object.entries(conditions)) {
-      const {expression} = Condition.from(value).build(key, this);
+      if (value !== undefined) {
+        const {expression} = Condition.from(value).build(key, this);
 
-      this.addCondition(expression);
+        this.addCondition(expression);
+      }
     }
 
     return `${this.conditions.join(' AND ')}` || undefined;
