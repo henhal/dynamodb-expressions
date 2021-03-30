@@ -70,12 +70,12 @@ describe('Update action tests', () => {
         [42, 5]);
   });
 
-  it.only('Should build a SET update action referring to size of other attribute', () => {
+  it('Should build a SET update action referring to size of other attribute', () => {
     matchExpression(
         {a: 42, b: Operand.size('c')},
         /^SET #a = (:val_.*), #b = size\((.*)\)$/,
-        {'#a': 'a', '#b': 'b'},
-        [42, 'foo']);
+        {'#a': 'a', '#b': 'b', '#c': 'c'},
+        [42]);
   });
 
   it('Should build an empty update action', () => {
