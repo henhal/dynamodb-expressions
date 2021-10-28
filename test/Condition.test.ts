@@ -1,6 +1,6 @@
-import {buildConditionExpression, Condition, ConditionSet} from '../Condition';
-import {ConditionExpressionBuilder} from '../ConditionExpressionBuilder';
-import {Operand} from '../Operand';
+import {Condition, ConditionSet} from 'src/Condition';
+import {ConditionExpressionBuilder} from 'src/ConditionExpressionBuilder';
+import {Operand} from 'src/Operand';
 
 function matchExpression(c: ConditionSet<unknown>, exprPattern: RegExp, names: Record<string, string>, values: unknown[]) {
   const builder = new ConditionExpressionBuilder({});

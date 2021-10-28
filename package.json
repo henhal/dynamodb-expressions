@@ -11,7 +11,7 @@
     "build": "tsc",
     "clean": "rm -rf dist && rm -rf tsconfig.tsbuildinfo",
     "lint": "eslint src --ext js,ts --max-warnings 0",
-    "test": "jest --config src/test/jest.config.js",
+    "test": "jest --config jest.config.js",
     "prepublish": "yarn clean && yarn build && yarn test"
   },
   "repository": {

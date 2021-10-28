@@ -1,6 +1,6 @@
 module.exports = {
   "setupFilesAfterEnv": [
-    "./jest.setup.js"
+    "./test/jest.setup.js"
   ],
   "testMatch": [
     "**/__tests__/**/*.+(ts|tsx|js)",
@@ -10,4 +10,5 @@ module.exports = {
   "transform": {
     "^.+\\.(ts|tsx)$": "ts-jest"
   },
+  "moduleDirectories": [".", "node_modules"]
 };
