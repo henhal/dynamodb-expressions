@@ -173,10 +173,12 @@ export function buildUpdateExpression<T>(attributes: UpdateAttributes<T>, params
  */
 export function buildUpdateParams<T, P extends Record<string, unknown>>(
     {attributes, params = {} as P}: {attributes: UpdateAttributes<T>; params?: P}
-): UpdateParams & P | undefined {
+): UpdateParams & P {
   const expression = buildUpdateExpression(attributes, params);
 
-  if (expression) {
-    return Object.assign(params, {UpdateExpression: expression}) as P & UpdateParams;
+  if (!expression) {
+    throw new Error(`Cannot build update expression for empty attributes`);
   }
+
+  return Object.assign(params, {UpdateExpression: expression}) as P & UpdateParams;
 }

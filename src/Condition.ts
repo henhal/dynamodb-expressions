@@ -161,18 +161,21 @@ export function buildConditionExpression<T>(conditions: ConditionSet<T>, params:
   return new ConditionExpressionBuilder(params).build(conditions) || undefined;
 }
 
-export function buildConditionParams<T, P extends Record<string, unknown>>(conditions: ConditionSet<T>, params: P = {} as P): ConditionParams & P | undefined {
+export function buildConditionParams<T, P extends Record<string, unknown>>(conditions: ConditionSet<T>, params: P = {} as P): ConditionParams & P {
   const expression = buildConditionExpression(conditions, params);
 
-  if (expression) {
-    return Object.assign(params, {ConditionExpression: expression}) as P & ConditionParams;
+  if (!expression) {
+    throw new Error(`Cannot build condition expression for empty conditions`);
   }
+
+  return Object.assign(params, {ConditionExpression: expression}) as P & ConditionParams;
 }
 
-export function buildKeyConditionParams<T, P extends Record<string, unknown>>(conditions: ConditionSet<T>, params: P = {} as P): KeyConditionParams & P | undefined {
+export function buildKeyConditionParams<T, P extends Record<string, unknown>>(conditions: ConditionSet<T>, params: P = {} as P): KeyConditionParams & P {
   const expression = buildConditionExpression(conditions, params);
 
-  if (expression) {
-    return Object.assign(params, {KeyConditionExpression: expression}) as P & KeyConditionParams;
+  if (!expression) {
+    throw new Error(`Cannot build key condition expression for empty conditions`);
   }
+  return Object.assign(params, {KeyConditionExpression: expression}) as P & KeyConditionParams;
 }

@@ -1,6 +1,7 @@
 # dynamodb-expressions
-Helpers for creating DynamoDB expressions
+Zero-dependency library of helpers for creating DynamoDB expressions without the hassle of maintaining `ExpressionAttributeValues`, escaping reserved attribute names, dealing with `#param`, `:value` etc! 🎉
 
+## Introduction
 This module enables building complex DynamoDB expressions (update expressions or condition expressions) using a simple syntax,
 with TypeScript typing.
 A condition string is built from attributes, and attribute names and values are handled and added to the supplied params.

@@ -1,7 +1,7 @@
 import ParamsBuilder from './ParamsBuilder';
 
 export interface Params {
-  ExpressionAttributeNames: Record<string, string | undefined>;
+  ExpressionAttributeNames: Record<string, string>;
   ExpressionAttributeValues: Record<string, unknown>;
 }
 
