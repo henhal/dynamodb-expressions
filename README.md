@@ -10,23 +10,39 @@ A condition string is built from attributes, and attribute names and values are 
 A simple update of attributes `foo` and `bar`:
 
 ```
-const params = {};
 
-const UpdateExpression = buildUpdateExpression({
-  foo: 42,
-  bar: 'HELLO'
-}, params);
+await ddb.update(buildUpdateParams({
+  params: {
+    TableName: 'my-stuff',
+    Key: {id: '42'},
+  },
+  attributes: {
+    foo: 42,
+    bar: 'HELLO'
+  }
+}));
+```
+Note that `buildUpdateParams` will add `UpdateExpression`, `ExpressionAttributeNames` and `ExpressionAttributeValues` to the given params and return the combined object.
+If `ExpressionAttributeNames` or `ExpressionAttributeValues` already exists in the given `params`, they will be built upon, meaning you can combine calls to `buildUpdateParams` and e.g. `buildConditionParams`.
 
-// The expression and the params may now form an update request:
+Alternatively you may of course add your other params separately:
+
+```
 await ddb.update({
   TableName: 'my-stuff',
   Key: {id: '42'},
-  UpdateExpression
-  ...params
+  ...buildUpdateParams({
+    attributes: {
+      foo: 42,
+      bar: 'HELLO'
+    }
+  })
 };
 ```
 
-More advanced operations:
+The library offers a simple syntax for producing complex conditions.
+
+Examples of more advanced operations:
 
 ```
 {
@@ -40,12 +56,69 @@ More advanced operations:
 }
 ```
 
-## Condition expessions
+You may also use the (legacy) function `buildUpdateExpression`, which returns the `UpdateExpression` as a single string. However, to obtain the `ExpressionAttributeNames` and `ExpressionAttributeValues` you must pass an in/out object which you then manually merge, since it contains `ExpressionAttributeNames` and `ExpressionAttributeValues` after the call to `buildUpdateExpression()` has returned:
 
 ```
 const params = {};
 
-const ConditionExpression = buildUpdateExpression({
+await ddb.update(
+  TableName: 'my-stuff',
+  Key: {id: '42'},
+  UpdateExpression: buildUpdateExpression({
+    foo: 42,
+    bar: 'HELLO'
+  }, params),
+  ...params
+};
+```
+
+### Update operators:
+
+
+## Condition expressions
+
+This is very similar to update expressions, but may instead produce `ConditionExpression` or `KeyConditionExpression` values.
+
+```
+await ddb.query(buildKeyConditionParams({
+  params: {
+    TableName: 'my-stuff',
+    IndexName: 'my-index',
+  },
+  conditions: {
+    foo: 42, // foo = 42
+    bar: Condition.gt(4), // bar > 4
+    baz: Condition.between(7, 12) // baz BETWEEN 7, 12
+    qux: Condition.in([1, 2, 4]) // qux IN (1, 2, 4)
+    str: Condition.beginsWith('foo') // begins_with(str, 'foo')
+  }
+}));
+```
+
+Alternatively:
+
+```
+await ddb.query({
+  TableName: 'my-stuff',
+  IndexName: 'my-index',
+  ...buildKeyConditionParams({
+    conditions: {
+      foo: 42, // foo = 42
+      bar: Condition.gt(4), // bar > 4
+      baz: Condition.between(7, 12) // baz BETWEEN 7, 12
+      qux: Condition.in([1, 2, 4]) // qux IN (1, 2, 4)
+      str: Condition.beginsWith('foo') // begins_with(str, 'foo')
+    }
+  });
+});
+```
+
+Legacy function with manual passing of `params`:
+
+```
+const params = {};
+
+const ConditionExpression = buildConditionExpression({
   foo: 42, // foo = 42
   bar: Condition.gt(4), // bar > 4
   baz: Condition.between(7, 12) // baz BETWEEN 7, 12

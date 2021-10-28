@@ -17,6 +17,14 @@ export type ConditionAttributes<T> = {
   [path: string]: ConditionValue<any>;
 };
 
+export interface ConditionParams extends Params {
+  ConditionExpression: string;
+}
+
+export interface KeyConditionParams extends Params {
+  KeyConditionExpression: string;
+}
+
 export type ConditionSet<T> = ConditionAttributes<T> | CompositeCondition<T>;
 
 export class Condition<T> {
@@ -151,4 +159,20 @@ export class CompositeCondition<T> {
 
 export function buildConditionExpression<T>(conditions: ConditionSet<T>, params: Partial<Params>): string | undefined {
   return new ConditionExpressionBuilder(params).build(conditions) || undefined;
+}
+
+export function buildConditionParams<T, P extends Record<string, unknown>>(conditions: ConditionSet<T>, params: P = {} as P): ConditionParams & P | undefined {
+  const expression = buildConditionExpression(conditions, params);
+
+  if (expression) {
+    return Object.assign(params, {ConditionExpression: expression}) as P & ConditionParams;
+  }
+}
+
+export function buildKeyConditionParams<T, P extends Record<string, unknown>>(conditions: ConditionSet<T>, params: P = {} as P): KeyConditionParams & P | undefined {
+  const expression = buildConditionExpression(conditions, params);
+
+  if (expression) {
+    return Object.assign(params, {KeyConditionExpression: expression}) as P & KeyConditionParams;
+  }
 }

@@ -10,6 +10,10 @@ export type UpdateAttributes<T> = {
   [key: string]: UpdateValue<any>;
 }
 
+export interface UpdateParams extends Params {
+  UpdateExpression: string;
+}
+
 export class UpdateAction<T> {
   private constructor(readonly build: (key: string, builder: ParamsBuilder) => {
     type: ActionType;
@@ -17,10 +21,18 @@ export class UpdateAction<T> {
   }) {
   }
 
-  static from<T>(value: UpdateAction<T> | T) {
+  /**
+   * Obtain an UpdateAction from a value or action
+   * @param value
+   */
+  static from<T>(value: UpdateAction<T> | T): UpdateAction<T> {
     return value instanceof UpdateAction ? value : UpdateAction.set(value);
   }
 
+  /**
+   * Obtain an UpdateAction for a SET action
+   * @param value
+   */
   static set<T>(value: T | SetValue): UpdateAction<T> {
     return new UpdateAction((key, builder) => {
       const v = value instanceof SetValue ? value : SetValue.value(value);
@@ -32,6 +44,10 @@ export class UpdateAction<T> {
     });
   }
 
+  /**
+   * Obtain an UpdateAction for a REMOVE action
+   * @param value
+   */
   static remove(): UpdateAction<void> {
     return new UpdateAction((key, builder) => ({
       type: 'REMOVE',
@@ -39,6 +55,10 @@ export class UpdateAction<T> {
     }));
   }
 
+  /**
+   * Obtain an UpdateAction for a ADD action
+   * @param value
+   */
   static add<T extends number | Set<unknown>>(value: T): UpdateAction<T> {
     return new UpdateAction((key, builder) => ({
       type: 'ADD',
@@ -46,6 +66,10 @@ export class UpdateAction<T> {
     }));
   }
 
+  /**
+   * Obtain an UpdateAction for a DELETE action
+   * @param value
+   */
   static delete<T extends Set<unknown>>(value: T): UpdateAction<T> {
     return new UpdateAction((key, builder) => ({
       type: 'DELETE',
@@ -58,10 +82,24 @@ export class SetValue {
   private constructor(readonly build: (key: string, builder: ParamsBuilder) => string) {
   }
 
+  /**
+   * Obtain a set expression which assigns a simple scalar value (SET #price = :val)
+   * @param value
+   */
   static value<T>(value: T): SetValue {
     return new SetValue((key, builder) => builder.addOperand(value, 'value', 'set'));
   }
 
+  /**
+   * Obtain a set expression which adds two values (SET #z = #x + #y or SET #price = #price + :val).
+   * Values may be values or names of attributes.
+   * Examples:
+   * add('Price', 42)
+   * add('42', '43')
+   * add('Price', 'Amount')
+   * @param n1
+   * @param n2
+   */
   static add(n1: number | string, n2: number | string): SetValue {
     return new SetValue((key, builder) => {
       const operands = [n1, n2].map((n, i) =>
@@ -71,6 +109,16 @@ export class SetValue {
     });
   }
 
+  /**
+   * Obtain a set expression which subtracts two values (SET #z = #x - #y or SET #price = #price - :val).
+   * Values may be values or names of attributes.
+   * Examples:
+   * subtract('Price', 42)
+   * subtract('42', '43')
+   * subtract('Price', 'Amount')
+   * @param n1
+   * @param n2
+   */
   static subtract(n1: number | string, n2: number | string): SetValue {
     return new SetValue((key, builder) => {
       const operands = [n1, n2].map((n, i) =>
@@ -80,6 +128,15 @@ export class SetValue {
     });
   }
 
+  /**
+   * Obtain a set expression which appends elements from a source list to a target list (SET #mylist = list_append(#mylist, :new_values)
+   * Examples:
+   * append('mylist', [42, 43])
+   * append('['abc'], ['def', 'ghi'])
+   * append('mylist', 'myotherlist')
+   * @param list1
+   * @param list2
+   */
   static append<T>(list1: Array<T> | string, list2: Array<T> | string): SetValue {
     return new SetValue((key, builder) => {
       const operands = [list1, list2].map((list, i) =>
@@ -89,6 +146,11 @@ export class SetValue {
     });
   }
 
+  /**
+   * Obtain a set expression for a if_not_exists function (SET #price = if_not_exists(#price, :100))
+   * @param p Attribute name
+   * @param value Value to use if the attribute has no value
+   */
   static ifNotExists<T>(p: string, value: T): SetValue {
     return new SetValue((key, builder) => {
       const operands = [builder.addOperand(p, 'name'), builder.addOperand(value, 'value', 'ifnotexists')];
@@ -100,4 +162,21 @@ export class SetValue {
 
 export function buildUpdateExpression<T>(attributes: UpdateAttributes<T>, params: Partial<Params>): string | undefined {
   return new UpdateExpressionBuilder(params).build(attributes) || undefined;
+}
+
+/**
+ * Build update params to be used for an update() call to the DynamoDB client
+ * @param attributes Update attributes
+ * @param [params] Optional other params such as TableName, additional ExpressionAttributeNames etc.
+ *                 This object will be merged with the produced UpdateExpression and associated
+ *                 ExpressionAttributeNames/Values.
+ */
+export function buildUpdateParams<T, P extends Record<string, unknown>>(
+    {attributes, params = {} as P}: {attributes: UpdateAttributes<T>; params?: P}
+): UpdateParams & P | undefined {
+  const expression = buildUpdateExpression(attributes, params);
+
+  if (expression) {
+    return Object.assign(params, {UpdateExpression: expression}) as P & UpdateParams;
+  }
 }

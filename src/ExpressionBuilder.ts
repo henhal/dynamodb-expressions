@@ -1,9 +1,9 @@
 import ParamsBuilder from './ParamsBuilder';
 
-export type Params = {
-  ExpressionAttributeNames: Record<string, string>;
+export interface Params {
+  ExpressionAttributeNames: Record<string, string | undefined>;
   ExpressionAttributeValues: Record<string, unknown>;
-};
+}
 
 function addUniqueMapping(values: Record<string, unknown>, key: string, value: unknown) {
   let uniqueKey = key;
@@ -20,7 +20,7 @@ export abstract class ExpressionBuilder<A extends Record<string, unknown>> imple
   constructor(readonly params: Partial<Params>) {
   }
 
-  addOperand(operand: unknown, defaultType: 'name' | 'value', prefix = '') {
+  addOperand(operand: unknown, defaultType: 'name' | 'value', prefix = ''): string {
     if (typeof operand === 'string') {
       if (operand[0] === ':') {
         // Explicit literal, needed if value contains #

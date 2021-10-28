@@ -21,11 +21,11 @@ export class UpdateExpressionBuilder<T extends Record<string, any>> extends Expr
         .join(' ') || undefined;
   }
 
-  protected addValue(value: unknown, prefix = '') {
+  protected addValue(value: unknown, prefix = ''): string {
     return super.addValue(value, `val_${prefix}`);
   }
 
-  addAction(type: ActionType, action: string) {
+  addAction(type: ActionType, action: string): void {
     let actions = this.actions.get(type);
 
     if (!actions) {
