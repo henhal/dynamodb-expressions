@@ -1,6 +1,6 @@
 {
   "name": "dynamodb-expressions",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Helpers for creating DynamoDB expressions",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
