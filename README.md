@@ -74,6 +74,13 @@ await ddb.update(
 
 ### Update operators:
 
+All operators supported by DynamoDB as per https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html are included:
+* SET
+* REMOVE
+* ADD
+* DELETE
+
+Nested attributes, lists, sets and built-in DynamoDB functions such as `list_append`, `if_not_exists` etc are supported.
 
 ## Condition expressions
 
@@ -133,6 +140,33 @@ await ddb.query({
   ...params
 });
 ```
+  
+### Condition operators:
+
+The operators and functions described at https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.OperatorsAndFunctions.html are all supported:
+
+* Arithmetic 
+  * `=`
+  * `<>`
+  * `<`
+  * `<=`
+  * `>`
+  * `>=`
+* Value sets
+  * `IN`
+* Value ranges 
+  * `BETWEEN`
+* Boolean operators
+  * `AND`
+  * `OR`
+  * `NOT`
+* Functions:
+  * `attribute_exists` 
+  * `attribute_not_exists` 
+  * `attribute_type` 
+  * `begins_with` 
+  * `contains`
+  * `size`
   
 
 
