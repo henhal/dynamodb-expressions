@@ -161,7 +161,16 @@ export function buildConditionExpression<T>(conditions: ConditionSet<T>, params:
   return new ConditionExpressionBuilder(params).build(conditions) || undefined;
 }
 
-export function buildConditionParams<T, P extends Record<string, unknown>>(conditions: ConditionSet<T>, params: P = {} as P): ConditionParams & P {
+/**
+ * Build condition params to be used for an update() call to the DynamoDB client
+ * @param conditions Update conditions
+ * @param [params] Optional other params such as TableName, additional ExpressionAttributeNames etc.
+ *                 This object will be merged with the produced ConditionExpression and associated
+ *                 ExpressionAttributeNames/Values.
+ */
+export function buildConditionParams<T, P extends Record<string, unknown>>(
+    {conditions, params = {} as P}: {conditions: ConditionSet<T>, params?: P}
+): ConditionParams & P {
   const expression = buildConditionExpression(conditions, params);
 
   if (!expression) {
@@ -171,7 +180,16 @@ export function buildConditionParams<T, P extends Record<string, unknown>>(condi
   return Object.assign(params, {ConditionExpression: expression}) as P & ConditionParams;
 }
 
-export function buildKeyConditionParams<T, P extends Record<string, unknown>>(conditions: ConditionSet<T>, params: P = {} as P): KeyConditionParams & P {
+/**
+ * Build key condition params to be used for a query() call to the DynamoDB client
+ * @param conditions Update conditions
+ * @param [params] Optional other params such as TableName, additional ExpressionAttributeNames etc.
+ *                 This object will be merged with the produced KeyConditionExpression and associated
+ *                 ExpressionAttributeNames/Values.
+ */
+export function buildKeyConditionParams<T, P extends Record<string, unknown>>(
+    {conditions, params = {} as P}: {conditions: ConditionSet<T>, params?: P}
+): KeyConditionParams & P {
   const expression = buildConditionExpression(conditions, params);
 
   if (!expression) {
