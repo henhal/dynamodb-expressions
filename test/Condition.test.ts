@@ -1,10 +1,11 @@
-import {Condition, ConditionSet} from 'src/Condition';
-import {ConditionExpressionBuilder} from 'src/ConditionExpressionBuilder';
-import {Operand} from 'src/Operand';
+import {Condition, ConditionSet} from '../src/Condition';
+import {ConditionExpressionBuilder} from '../src/ConditionExpressionBuilder';
+import {Operand} from '../src/Operand';
 
 function matchExpression(c: ConditionSet<unknown>, exprPattern: RegExp, names: Record<string, string>, values: unknown[]) {
   const builder = new ConditionExpressionBuilder({});
   const expr = builder.build(c);
+
   expect(expr).toBeDefined();
   expect(expr).toMatch(exprPattern);
   const result = expr?.match(exprPattern) ?? [];
@@ -103,6 +104,21 @@ describe('Condition tests', () => {
   });
 
   it('Should build a composite condition with empty operands', () => {
+    const builder = new ConditionExpressionBuilder({});
+    const expr = builder.build(Condition.or());
+
+    expect(expr).toBeUndefined();
+  });
+
+  it('Should build a nested composite condition with single operand', () => {
+    matchExpression(
+        Condition.and({a: 5}, Condition.or({b: 4})),
+        /^\(#a = (:cond_.*) AND #b = (:cond_.*)\)$/,
+        {'#a': 'a', '#b': 'b'},
+        [5, 4]);
+  });
+
+  it('Should build a nested composite condition with empty operands', () => {
     matchExpression(
         Condition.and({a: 5}, Condition.or(Condition.and())),
         /^#a = (:cond_.*)$/,

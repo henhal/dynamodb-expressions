@@ -5,24 +5,30 @@ export class ConditionExpressionBuilder<T> extends ExpressionBuilder<ConditionAt
   private readonly conditions: string[] = [];
 
   build(conditions: ConditionSet<T>): string | undefined {
+    let expr: string;
+
     if (conditions instanceof CompositeCondition) {
       const expressions = conditions.operands
           .map(operand => new ConditionExpressionBuilder(this.params).build(operand))
           .filter(expression => expression);
 
-      const joined = expressions.join(` ${conditions.operator} `);
-      return expressions.length > 1 ? `(${joined})` : joined;
-    }
-
-    for (const [key, value] of Object.entries(conditions)) {
-      if (value !== undefined) {
-        const {expression} = Condition.from(value).build(key, this);
-
-        this.addCondition(expression);
+      expr = expressions.join(` ${conditions.operator} `);
+      if (expressions.length > 1) {
+        expr = `(${expr})`;
       }
+    } else {
+      for (const [key, value] of Object.entries(conditions)) {
+        if (value !== undefined) {
+          const {expression} = Condition.from(value).build(key, this);
+
+          this.addCondition(expression);
+        }
+      }
+
+      expr = `${this.conditions.join(' AND ')}`;
     }
 
-    return `${this.conditions.join(' AND ')}` || undefined;
+    return expr || undefined;
   }
 
   protected addValue(value: unknown, prefix = ''): string {

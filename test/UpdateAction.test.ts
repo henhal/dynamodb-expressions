@@ -1,6 +1,6 @@
-import {SetValue, UpdateAction, UpdateAttributes} from 'src/UpdateAction';
-import {UpdateExpressionBuilder} from 'src/UpdateExpressionBuilder';
-import {Operand} from 'src/Operand';
+import {SetValue, UpdateAction, UpdateAttributes} from '../src/UpdateAction';
+import {UpdateExpressionBuilder} from '../src/UpdateExpressionBuilder';
+import {Operand} from '../src/Operand';
 
 function matchExpression(action: UpdateAttributes<unknown>, exprPattern: RegExp, names: Record<string, string>, values: unknown[]) {
   const builder = new UpdateExpressionBuilder({});
