@@ -1,6 +1,35 @@
 # dynamodb-expressions
 Zero-dependency library of helpers for creating DynamoDB expressions without the hassle of maintaining `ExpressionAttributeValues`, escaping reserved attribute names, dealing with `#param`, `:value` etc! 🎉
 
+## BREAKING CHANGE in v3:
+
+`Condition.and()` and `Condition.or()` now have a different meaning from before. 
+* The old methods are moved to `ConditionSet` namespace, which is more consistent since they both return `ConditionSet`.
+* The new methods return `Condition` which is in line with all other static methods on `Condition`, and enables easy 
+  use of `AND`/`OR` conditions on a single attribute, with shorter syntax:
+
+```
+{
+  a: 1
+  b: Condition.or(2, 3)
+  c: Condition.or(4, 5)
+}
+
+=> "a = 1 AND (b = 2 OR b = 3) AND (c = 4 OR c = 5)"
+```
+
+which using the old way of creating OR conditions would be
+
+```
+ConditionSet.and(
+  {a: 1}, 
+  ConditionSet.or({b: 2}, {b: 3}), 
+  ConditionSet.or({c: 4}, {c: 5})
+)
+
+=> "a = 1 AND (b = 2 OR b = 3) AND (c = 4 OR c = 5)"
+```
+
 ## Introduction
 This module enables building complex DynamoDB expressions (update expressions or condition expressions) using a simple syntax,
 with TypeScript typing.
