@@ -27,23 +27,31 @@ export interface KeyConditionParams extends Params {
 
 export type ConditionSet<T> = ConditionAttributes<T> | CompositeCondition<T>;
 
+type BuildConditionExpression = (key: string, builder: ParamsBuilder) => {
+  expression: string;
+};
+
+type EvaluateCondition<T> = (value: T) => unknown;
+
+export type AttributeType = 'S' | 'SS' | 'N' | 'NS' | 'B' | 'BS' | 'BOOL' | 'NULL' | 'L' | 'M';
+
 export class Condition<T> {
-  private constructor(readonly build: (key: string, builder: ParamsBuilder) => {expression: string;}) {
+  private constructor(readonly build: BuildConditionExpression, readonly evaluate: EvaluateCondition<T>) {
   }
 
-  private static comparator<T>(operator: Comparator, value: T): Condition<T> {
+  private static comparator<T>(operator: Comparator, value: T, evaluate: EvaluateCondition<T>): Condition<T> {
     return new Condition<T>((key, builder) => ({
       expression: `${builder.addOperand(key, 'name')} ${operator} ${builder.addOperand(value, 'value')}`
-    }));
+    }), evaluate);
   }
 
-  private static func<T>(func: Func, ...args: unknown[]): Condition<T> {
+  private static func<T>(func: Func, args: unknown[], evaluate: EvaluateCondition<T>): Condition<T> {
     return new Condition<T>((key, builder) => ({
       expression: `${func}(${[
         builder.addOperand(key, 'name'),
-        ...args.map((arg, i) => builder.addOperand(arg, 'value', `${func}_arg${i}`)),
+        args.map((arg, i) => builder.addOperand(arg, 'value', `${func}_arg${i}`)),
       ].join(', ')})`
-    }));
+    }), evaluate);
   }
 
   static from<T>(c: ConditionValue<T>): Condition<T> {
@@ -51,75 +59,114 @@ export class Condition<T> {
   }
 
   static eq<T>(value: T): Condition<T> {
-    return Condition.comparator('=', value);
+    return Condition.comparator('=', value, v => v === value);
   }
 
   static gt<T>(value: T): Condition<T> {
-    return Condition.comparator('>', value);
+    return Condition.comparator('>', value, v => v > value);
   }
 
   static ge<T>(value: T): Condition<T> {
-    return Condition.comparator('>=', value);
+    return Condition.comparator('>=', value, v => v >= value);
   }
 
   static lt<T>(value: T): Condition<T> {
-    return Condition.comparator('<', value);
+    return Condition.comparator('<', value, v => v < value);
   }
 
   static le<T>(value: T): Condition<T> {
-    return Condition.comparator('<=', value);
+    return Condition.comparator('<=', value, v => v <= value);
   }
 
   static neq<T>(value: T): Condition<T> {
-    return Condition.comparator('<>', value);
+    return Condition.comparator('<>', value, v => v !== value);
   }
 
   static between<T>(...operands: [T, T]): Condition<T> {
     return new Condition<T>((key, builder) => ({
       expression: `${builder.addOperand(key, 'name')} BETWEEN ${
           operands.map((operand, i) => builder.addOperand(operand, 'value', `between${i}`)).join(' AND ')}`
-    }));
+    }), v => v >= operands[0] && v <= operands[1]);
   }
 
   static in<T>(operands: T[]): Condition<T> {
     return new Condition<T>((key, builder) => ({
       expression: `${builder.addOperand(key, 'name')} IN (${
           operands.map((operand, i) => builder.addOperand(operand, 'value', `in${i}`)).join(', ')})`
-    }));
+    }), v => operands.includes(v));
   }
 
   static attributeExists<T>(): Condition<T> {
-    return Condition.func('attribute_exists');
+    return Condition.func('attribute_exists', [], v => v !== undefined);
   }
 
   static attributeNotExists<T>(): Condition<T> {
-    return Condition.func('attribute_not_exists');
+    return Condition.func('attribute_not_exists', [], v => v === undefined);
   }
 
-  static attributeType<T>(type: string): Condition<T> {
-    return Condition.func('attribute_type', type);
+  static attributeType<T>(type: AttributeType): Condition<T> {
+    return Condition.func('attribute_type', [type], v => {
+      switch (type) {
+        case 'S':
+          return typeof v === 'string';
+        case 'SS':
+        case 'NS':
+        case 'BS':
+          return v instanceof Set;
+        case 'N':
+          return typeof v === 'number';
+        case 'B':
+          return v instanceof Buffer;
+        case 'BOOL':
+          return typeof v === 'boolean';
+        case 'NULL':
+          return v === null;
+        case 'L':
+          return Array.isArray(v);
+        case 'M':
+          return typeof v === 'object' && (v as any).constructor === Object;
+      }
+    });
   }
 
   static beginsWith<T extends string>(substr: string): Condition<T> {
-    return Condition.func('begins_with', substr);
+    return Condition.func('begins_with', [substr], v => v.startsWith(substr));
   }
 
-  static contains<T extends string | Set<unknown>>(operand: T): Condition<T> {
-    return Condition.func('contains', operand);
+  static contains<T extends string | Set<unknown>>(operand: T): Condition<T extends string ? string : T> {
+    return Condition.func('contains', [operand], v => {
+      if (typeof v === 'string') {
+        return v.includes(operand as string);
+      }
+
+      const set = v as Set<unknown>;
+
+      return [...operand as Set<unknown>].some(x => set.has(x));
+    });
   }
 
   static size<T>(): Condition<T> {
-    return Condition.func('size');
+    return Condition.func('size', [], v => {
+      if (typeof v === 'string' || v instanceof Buffer || Array.isArray(v)) {
+        return v.length;
+      }
+      if (v instanceof Set) {
+        return v.size;
+      }
+
+      return Object.keys(v).length;
+    });
   }
 
-  static not<T>(c: ConditionValue<T>): Condition<T> {
+  static not<T>(v: ConditionValue<T>): Condition<T> {
+    const cond = Condition.from(v);
     return new Condition((key, builder) => {
-      const {expression} = Condition.from(c).build(key, builder);
+      const {expression} = cond.build(key, builder);
 
       return {
         expression: `NOT (${expression})`
       };
-    });
+    }, v => !cond.evaluate(v));
   }
 
   static and<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {

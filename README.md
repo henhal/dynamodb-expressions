@@ -168,6 +168,14 @@ The operators and functions described at https://docs.aws.amazon.com/amazondynam
   * `begins_with` 
   * `contains`
   * `size`
-  
 
+Note that `Condition` also offers an `evaluate` method which can be used for locally evaluating a condition against a 
+value, for testing or other purposes
 
+```
+> const c = Condition.ge(42);
+> console.log(c.evaluate(42))
+true
+> console.log(c.evaluate(41))
+false
+```
