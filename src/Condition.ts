@@ -27,6 +27,16 @@ export interface KeyConditionParams extends Params {
 
 export type ConditionSet<T> = ConditionAttributes<T> | CompositeCondition<T>;
 
+export namespace ConditionSet {
+  export function and<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
+    return new CompositeCondition<T>('AND', operands);
+  }
+
+  export function or<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
+    return new CompositeCondition<T>('OR', operands);
+  }
+}
+
 type BuildConditionExpression = (key: string, builder: ParamsBuilder) => {
   expression: string;
 };
@@ -169,12 +179,22 @@ export class Condition<T> {
     }, v => !cond.evaluate(v));
   }
 
-  static and<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
-    return new CompositeCondition<T>('AND', operands);
+  static and<T>(...operands: Array<ConditionValue<T>>): Condition<T> {
+    const conditions = operands.map(op => Condition.from(op));
+    return new Condition((key, builder) => {
+      return {
+        expression: `(${conditions.map(c => c.build(key, builder).expression).join(' AND ')})`
+      };
+    }, v => conditions.every(c => c.evaluate(v)));
   }
 
-  static or<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
-    return new CompositeCondition<T>('OR', operands);
+  static or<T>(...operands: Array<ConditionValue<T>>): Condition<T> {
+    const conditions = operands.map(op => Condition.from(op));
+    return new Condition((key, builder) => {
+      return {
+        expression: `(${conditions.map(c => c.build(key, builder).expression).join(' OR ')})`
+      };
+    }, v => conditions.some(c => c.evaluate(v)));
   }
 }
 

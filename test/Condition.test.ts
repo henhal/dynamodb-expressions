@@ -31,7 +31,7 @@ describe('Condition tests', () => {
 
   it('Should build a composite condition', () => {
     matchExpression(
-        Condition.or({a: 42, b: 'foo'}, {a: 43, b: 'bar'}),
+        ConditionSet.or({a: 42, b: 'foo'}, {a: 43, b: 'bar'}),
         /^\(#a = (:cond_.*) AND #b = (:cond_.*) OR #a = (:cond_.*) AND #b = (:cond_.*)\)$/,
         {'#a': 'a', '#b': 'b'},
         [42, 'foo', 43, 'bar']);
@@ -39,7 +39,7 @@ describe('Condition tests', () => {
 
   it('Should build a nested composite condition', () => {
     matchExpression(
-        Condition
+        ConditionSet
             .or({a: 42, b: 'foo'}, {a: 43, b: 'bar'})
             .and({a: 44, b: 'baz'}, {a: 45, b: 'qux'}),
         /^\(\(#a = (:cond_.*) AND #b = (:cond_.*) OR #a = (:cond_.*) AND #b = (:cond_.*)\) AND #a = (:cond_.*) AND #b = (:cond_.*) AND #a = (:cond_.*) AND #b = (:cond_.*)\)$/,
@@ -49,9 +49,9 @@ describe('Condition tests', () => {
 
   it('Should build a deeply nested composite condition', () => {
     matchExpression(
-        Condition
+        ConditionSet
             .or({a: 42, b: 'foo'}, {a: 43, b: 'bar'})
-            .and({a: 44, b: 'baz'}, {a: 45, b: 'qux'}, Condition.or({a: 46, b: 'quux'}, {a: 47, b: 'quuz'})),
+            .and({a: 44, b: 'baz'}, {a: 45, b: 'qux'}, ConditionSet.or({a: 46, b: 'quux'}, {a: 47, b: 'quuz'})),
         /^\(\(#a = (:cond_.*) AND #b = (:cond_.*) OR #a = (:cond_.*) AND #b = (:cond_.*)\) AND #a = (:cond_.*) AND #b = (:cond_.*) AND #a = (:cond_.*) AND #b = (:cond_.*) AND \(#a = (:cond_.*) AND #b = (:cond_.*) OR #a = (:cond_.*) AND #b = (:cond_.*)\)\)$/,
         {'#a': 'a', '#b': 'b'},
         [42, 'foo', 43, 'bar', 44, 'baz', 45, 'qux', 46, 'quux', 47, 'quuz']);
@@ -125,14 +125,14 @@ describe('Condition tests', () => {
 
   it('Should build a composite condition with empty operands', () => {
     const builder = new ConditionExpressionBuilder({});
-    const expr = builder.build(Condition.or());
+    const expr = builder.build(ConditionSet.or());
 
     expect(expr).toBeUndefined();
   });
 
   it('Should build a nested composite condition with single operand', () => {
     matchExpression(
-        Condition.and({a: 5}, Condition.or({b: 4})),
+        ConditionSet.and({a: 5}, ConditionSet.or({b: 4})),
         /^\(#a = (:cond_.*) AND #b = (:cond_.*)\)$/,
         {'#a': 'a', '#b': 'b'},
         [5, 4]);
@@ -140,7 +140,7 @@ describe('Condition tests', () => {
 
   it('Should build a nested composite condition with empty operands', () => {
     matchExpression(
-        Condition.and({a: 5}, Condition.or(Condition.and())),
+        ConditionSet.and({a: 5}, ConditionSet.or(ConditionSet.and())),
         /^#a = (:cond_.*)$/,
         {'#a': 'a'},
         [5]);
@@ -153,4 +153,36 @@ describe('Condition tests', () => {
     expect(expr).toBeUndefined();
   });
 
+  it('Should build a condition with OR condition values', () => {
+    matchExpression(
+        {
+          a: 1,
+          b: Condition.or(2, 3)
+        },
+        /^#a = (:cond_.*) AND \(#b = (:cond_.*) OR #b = (:cond_.*)\)$/,
+        {'#a': 'a', '#b': 'b'},
+        [1, 2, 3]);
+  });
+
+  it('Should build a condition with OR condition operators', () => {
+    matchExpression(
+        {
+          a: 1,
+          b: Condition.or(2, Condition.gt(3), Condition.attributeExists())
+        },
+        /^#a = (:cond_.*) AND \(#b = (:cond_.*) OR #b > (:cond_.*) OR attribute_exists\(#b\)\)$/,
+        {'#a': 'a', '#b': 'b'},
+        [1, 2, 3]);
+  });
+
+  it('Should build a condition with AND condition operators', () => {
+    matchExpression(
+        {
+          a: 1,
+          b: Condition.and(2, Condition.gt(3), Condition.lt(4))
+        },
+        /^#a = (:cond_.*) AND \(#b = (:cond_.*) AND #b > (:cond_.*) AND #b < (:cond_.*)\)$/,
+        {'#a': 'a', '#b': 'b'},
+        [1, 2, 3, 4]);
+  });
 });
