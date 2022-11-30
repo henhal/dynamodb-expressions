@@ -103,6 +103,26 @@ describe('Condition tests', () => {
         [5]);
   });
 
+  it('Should build a condition with attribute_exists', () => {
+    matchExpression(
+        {
+          a: Condition.attributeExists()
+        },
+        /^attribute_exists\(#a\)$/,
+        {'#a': 'a'},
+        []);
+  });
+
+  it('Should build a condition with begins_with', () => {
+    matchExpression(
+        {
+          a: Condition.beginsWith('foo')
+        },
+        /^begins_with\(#a, (:cond_.*)\)$/,
+        {'#a': 'a'},
+        ['foo']);
+  });
+
   it('Should build a composite condition with empty operands', () => {
     const builder = new ConditionExpressionBuilder({});
     const expr = builder.build(Condition.or());

@@ -49,7 +49,7 @@ export class Condition<T> {
     return new Condition<T>((key, builder) => ({
       expression: `${func}(${[
         builder.addOperand(key, 'name'),
-        args.map((arg, i) => builder.addOperand(arg, 'value', `${func}_arg${i}`)),
+        ...args.map((arg, i) => builder.addOperand(arg, 'value', `${func}_arg${i}`)),
       ].join(', ')})`
     }), evaluate);
   }
