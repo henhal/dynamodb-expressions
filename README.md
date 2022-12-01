@@ -198,8 +198,29 @@ The operators and functions described at https://docs.aws.amazon.com/amazondynam
   * `contains`
   * `size`
 
-Note that `Condition` also offers an `evaluate` method which can be used for locally evaluating a condition against a 
-value, for testing or other purposes
+New in v3 is also the fact that `Condition` also has an `evaluate` method which can be used for supporting default values for missing attributes:
+
+```
+{
+  x: Condition.in(['foo', 'bar']).withDefaultValue('foo')
+}
+```
+
+This means that if the given default value matches the condition, records where the attribute is missing will also be included;
+in other words, the complete condition will be `(#x IN (:foo, :bar) OR attribute_not_exists(#x))` since records without the attribute will be treated as if they had the value `foo`, which matches the condition.
+
+A default value that doesn't match the condition will not affect it though:
+
+```
+{
+  x: Condition.in(['foo', 'bar']).withDefaultValue('baz')
+}
+```
+
+The condition will be`#x IN (:foo, :bar)` since records without the attribute will be treated as if they had the attribute value `baz`, which was not a value we wanted to match.
+
+
+The `evaluate` method may also be used to locally evaluate a condition against a value, for testing or other purposes.
 
 ```
 > const c = Condition.ge(42);

@@ -14,6 +14,10 @@ export interface UpdateParams extends Params {
   UpdateExpression: string;
 }
 
+/**
+ * A DynamoDB update action
+ * See https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.htmls
+ */
 export class UpdateAction<T> {
   private constructor(readonly build: (key: string, builder: ParamsBuilder) => {
     type: ActionType;
@@ -22,8 +26,9 @@ export class UpdateAction<T> {
   }
 
   /**
-   * Obtain an UpdateAction from a value or action
-   * @param value
+   * Obtain an UpdateAction from a value or action.
+   * If the value is already an UpdateAction it's returned as-is, otherwise the value is wrapped in a SET action.
+   * @param value UpdateAction or literal value to wrap in a SET action.
    */
   static from<T>(value: UpdateAction<T> | T): UpdateAction<T> {
     return value instanceof UpdateAction ? value : UpdateAction.set(value);
@@ -31,7 +36,8 @@ export class UpdateAction<T> {
 
   /**
    * Obtain an UpdateAction for a SET action
-   * @param value
+   * @param value Literal value to set, or a complex value that adds, subtracts, appends or conditionally sets a value if it exists
+   * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET
    */
   static set<T>(value: T | SetValue): UpdateAction<T> {
     return new UpdateAction((key, builder) => {
@@ -45,8 +51,8 @@ export class UpdateAction<T> {
   }
 
   /**
-   * Obtain an UpdateAction for a REMOVE action
-   * @param value
+   * Obtain an UpdateAction for a REMOVE action that removes an attribute
+   * See https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.REMOVE
    */
   static remove(): UpdateAction<void> {
     return new UpdateAction((key, builder) => ({
@@ -56,7 +62,9 @@ export class UpdateAction<T> {
   }
 
   /**
-   * Obtain an UpdateAction for a ADD action
+   * Obtain an UpdateAction for an ADD action that either adds the given numeric value to a numeric attribute,
+   * or adds the given subset to a set attribute
+   * See https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.ADD
    * @param value
    */
   static add<T extends number | Set<unknown>>(value: T): UpdateAction<T> {
@@ -67,8 +75,9 @@ export class UpdateAction<T> {
   }
 
   /**
-   * Obtain an UpdateAction for a DELETE action
+   * Obtain an UpdateAction for a DELETE action that removes an element from a set attribute
    * @param value
+   * See https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.DELETE
    */
   static delete<T extends Set<unknown>>(value: T): UpdateAction<T> {
     return new UpdateAction((key, builder) => ({
@@ -78,6 +87,10 @@ export class UpdateAction<T> {
   }
 }
 
+/**
+ * A complex set value using DynamoDB SET functions
+ * See https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET
+ */
 export class SetValue {
   private constructor(readonly build: (key: string, builder: ParamsBuilder) => string) {
   }
@@ -99,6 +112,7 @@ export class SetValue {
    * add('Price', 'Amount')
    * @param n1
    * @param n2
+   * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.IncrementAndDecrement
    */
   static add(n1: number | string, n2: number | string): SetValue {
     return new SetValue((key, builder) => {
@@ -118,6 +132,7 @@ export class SetValue {
    * subtract('Price', 'Amount')
    * @param n1
    * @param n2
+   * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.IncrementAndDecrement
    */
   static subtract(n1: number | string, n2: number | string): SetValue {
     return new SetValue((key, builder) => {
@@ -136,6 +151,7 @@ export class SetValue {
    * append('mylist', 'myotherlist')
    * @param list1
    * @param list2
+   * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.UpdatingListElements
    */
   static append<T>(list1: Array<T> | string, list2: Array<T> | string): SetValue {
     return new SetValue((key, builder) => {
@@ -150,6 +166,7 @@ export class SetValue {
    * Obtain a set expression for a if_not_exists function (SET #price = if_not_exists(#price, :100))
    * @param p Attribute name
    * @param value Value to use if the attribute has no value
+   * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.PreventingAttributeOverwrites
    */
   static ifNotExists<T>(p: string, value: T): SetValue {
     return new SetValue((key, builder) => {
@@ -160,6 +177,11 @@ export class SetValue {
   }
 }
 
+/**
+ * @deprecated Use buildUpdateParams
+ * @param attributes
+ * @param params
+ */
 export function buildUpdateExpression<T>(attributes: UpdateAttributes<T>, params: Partial<Params>): string | undefined {
   return new UpdateExpressionBuilder(params).build(attributes) || undefined;
 }

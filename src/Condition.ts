@@ -11,6 +11,11 @@ const OPERANDS = Symbol('OPERANDS');
 
 type ConditionValue<T> = T | Condition<T>;
 
+/**
+ * An object of key-value pairs where each key is an attribute name in the record and each value is either a
+ * literal value, will be treated as an equality condition, or a Condition object.
+ * All key-value pairs will be combined into an AND condition.
+ */
 export type ConditionAttributes<T> = {
   [P in keyof T]?: ConditionValue<T[P]>;
 } & {
@@ -28,10 +33,18 @@ export interface KeyConditionParams extends Params {
 export type ConditionSet<T> = ConditionAttributes<T> | CompositeCondition<T>;
 
 export namespace ConditionSet {
+  /**
+   * Create a composite AND condition from the given operands
+   * @param operands
+   */
   export function and<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
     return new CompositeCondition<T>('AND', operands);
   }
 
+  /**
+   * Create a composite OR condition from the given operands
+   * @param operands
+   */
   export function or<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
     return new CompositeCondition<T>('OR', operands);
   }
@@ -41,10 +54,14 @@ type BuildConditionExpression = (key: string, builder: ParamsBuilder) => {
   expression: string;
 };
 
-type EvaluateCondition<T> = (value: T) => unknown;
+type EvaluateCondition<T> = (value: T) => boolean;
 
 export type AttributeType = 'S' | 'SS' | 'N' | 'NS' | 'B' | 'BS' | 'BOOL' | 'NULL' | 'L' | 'M';
 
+/**
+ * A condition for a single attribute having the type T.
+ * See https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.OperatorsAndFunctions.html
+ */
 export class Condition<T> {
   private constructor(readonly build: BuildConditionExpression, readonly evaluate: EvaluateCondition<T>) {
   }
@@ -64,41 +81,83 @@ export class Condition<T> {
     }), evaluate);
   }
 
+  /**
+   * Wrap a condition so that a literal value will be turned into an equality condition.
+   * If the given value is already a condition, it's returned as-is.
+   * @param c Condition object or literal value treated as an equality condition
+   */
   static from<T>(c: ConditionValue<T>): Condition<T> {
     return c instanceof Condition ? c : Condition.eq(c);
   }
 
+  /**
+   * Create a condition for the given value with the operator '='
+   * @param value
+   */
   static eq<T>(value: T): Condition<T> {
     return Condition.comparator('=', value, v => v === value);
   }
 
+  /**
+   * Create a condition for the given value with the operator '>'
+   * @param value
+   */
   static gt<T>(value: T): Condition<T> {
     return Condition.comparator('>', value, v => v > value);
   }
 
+  /**
+   * Create a condition for the given value with the operator '>='
+   * @param value
+   */
   static ge<T>(value: T): Condition<T> {
     return Condition.comparator('>=', value, v => v >= value);
   }
 
+  /**
+   * Create a condition for the given value with the operator '<'
+   * @param value
+   */
   static lt<T>(value: T): Condition<T> {
     return Condition.comparator('<', value, v => v < value);
   }
 
+  /**
+   * Create a condition for the given value with the operator '<='
+   * @param value
+   */
   static le<T>(value: T): Condition<T> {
     return Condition.comparator('<=', value, v => v <= value);
   }
 
+  /**
+   * Create a condition for the given value with the operator '>'
+   * @param value
+   */
   static neq<T>(value: T): Condition<T> {
     return Condition.comparator('<>', value, v => v !== value);
   }
 
-  static between<T>(...operands: [T, T]): Condition<T> {
+  /**
+   * Create a condition for the given operands with the operator 'BETWEEN', i.e.,
+   * where the target value must be >= minValue and <= maxValue
+   * @param minValue
+   * @param maxValue
+   */
+  static between<T>(minValue: T, maxValue: T): Condition<T> {
     return new Condition<T>((key, builder) => ({
       expression: `${builder.addOperand(key, 'name')} BETWEEN ${
-          operands.map((operand, i) => builder.addOperand(operand, 'value', `between${i}`)).join(' AND ')}`
-    }), v => v >= operands[0] && v <= operands[1]);
+          [minValue, maxValue]
+              .map((operand, i) => builder.addOperand(operand, 'value', `between${i}`))
+              .join(' AND ')}`
+    }), v => v >= minValue && v <= maxValue);
   }
 
+  /**
+   * Create a condition for the given operands with the operator 'IN', i.e.,
+   * where the target value must be equal to one of the given values
+   * @param operands
+   */
   static in<T>(operands: T[]): Condition<T> {
     return new Condition<T>((key, builder) => ({
       expression: `${builder.addOperand(key, 'name')} IN (${
@@ -106,14 +165,27 @@ export class Condition<T> {
     }), v => operands.includes(v));
   }
 
+  /**
+   * Create a condition for the attribute existing, i.e.,
+   * using the DynamoDB function attribute_exists(path)
+   */
   static attributeExists<T>(): Condition<T> {
     return Condition.func('attribute_exists', [], v => v !== undefined);
   }
 
+  /**
+   * Create a condition for the attribute not existing, i.e.,
+   * using the DynamoDB function attribute_not_exists(path)
+   */
   static attributeNotExists<T>(): Condition<T> {
     return Condition.func('attribute_not_exists', [], v => v === undefined);
   }
 
+  /**
+   * Create a condition for the attribute having the given type, i.e.,
+   * using the DynamoDB function attribute_exists(path, type)
+   * @param type
+   */
   static attributeType<T>(type: AttributeType): Condition<T> {
     return Condition.func('attribute_type', [type], v => {
       switch (type) {
@@ -139,10 +211,21 @@ export class Condition<T> {
     });
   }
 
+  /**
+   * Create a condition for the attribute being a string that starts with the given substring, i.e.,
+   * using the DynamoDB function begins_with(path, substr)
+   * @param substr
+   */
   static beginsWith<T extends string>(substr: string): Condition<T> {
     return Condition.func('begins_with', [substr], v => v.startsWith(substr));
   }
 
+  /**
+   * Create a condition for the attribute being either a string that contains with the given substring or for
+   * the attribute being a Set that contains at least one element from the given subset, i.e.,
+   * using the DynamoDB function contains(path, operand)
+   * @param operand
+   */
   static contains<T extends string | Set<unknown>>(operand: T): Condition<T extends string ? string : T> {
     return Condition.func('contains', [operand], v => {
       if (typeof v === 'string') {
@@ -155,19 +238,10 @@ export class Condition<T> {
     });
   }
 
-  static size<T>(): Condition<T> {
-    return Condition.func('size', [], v => {
-      if (typeof v === 'string' || v instanceof Buffer || Array.isArray(v)) {
-        return v.length;
-      }
-      if (v instanceof Set) {
-        return v.size;
-      }
-
-      return Object.keys(v).length;
-    });
-  }
-
+  /**
+   * Create a condition that negates the given condition
+   * @param v A condition or a literal value which will be treated as an equality condition for the value
+   */
   static not<T>(v: ConditionValue<T>): Condition<T> {
     const cond = Condition.from(v);
     return new Condition((key, builder) => {
@@ -179,6 +253,10 @@ export class Condition<T> {
     }, v => !cond.evaluate(v));
   }
 
+  /**
+   * Create an AND condition for the given conditions or literal values
+   * @param operands
+   */
   static and<T>(...operands: Array<ConditionValue<T>>): Condition<T> {
     const conditions = operands.map(op => Condition.from(op));
     return new Condition((key, builder) => {
@@ -188,6 +266,10 @@ export class Condition<T> {
     }, v => conditions.every(c => c.evaluate(v)));
   }
 
+  /**
+   * Create an AND condition for the given conditions or literal values
+   * @param operands
+   */
   static or<T>(...operands: Array<ConditionValue<T>>): Condition<T> {
     const conditions = operands.map(op => Condition.from(op));
     return new Condition((key, builder) => {
@@ -196,8 +278,25 @@ export class Condition<T> {
       };
     }, v => conditions.some(c => c.evaluate(v)));
   }
+
+  /**
+   * Adjust this condition so that records with the attribute not existing are included if the given defaultValue
+   * matches the condition. This is useful to query tables with newly added attributes, to enable treating records
+   * without the attribute as if they have the given value.
+   * @param defaultValue
+   */
+  withDefaultValue(defaultValue: T | undefined): Condition<T> {
+    if (defaultValue !== undefined && this.evaluate(defaultValue)) {
+      return Condition.or(this, Condition.attributeNotExists());
+    }
+
+    return this;
+  }
 }
 
+/**
+ * A composite condition using AND or OR operator to combine multiple sub-conditions.
+ */
 export class CompositeCondition<T> {
   private readonly [OPERATOR]: Operator;
   private readonly [OPERANDS]: Array<ConditionSet<T>> = [];
@@ -207,23 +306,36 @@ export class CompositeCondition<T> {
     this[OPERANDS] = operands;
   }
 
-  get operator() {
+  get operator(): Operator {
     return this[OPERATOR];
   }
 
-  get operands() {
+  get operands(): Array<ConditionSet<T>> {
     return this[OPERANDS];
   }
 
+  /**
+   * Create a new AND condition that combines this condition and the given operands
+   * @param operands
+   */
   and(...operands: Array<ConditionSet<T>>): CompositeCondition<T> {
     return new CompositeCondition<T>('AND', [this, ...operands]);
   }
 
+  /**
+   * Create a new OR condition that combines this condition and the given operands
+   * @param operands
+   */
   or(...operands: Array<ConditionSet<T>>): CompositeCondition<T> {
     return new CompositeCondition<T>('OR', [this, ...operands]);
   }
 }
 
+/**
+ * @deprecated Use buildConditionParams or buildKeyConditionParams
+ * @param conditions
+ * @param params
+ */
 export function buildConditionExpression<T>(conditions: ConditionSet<T>, params: Partial<Params>): string | undefined {
   return new ConditionExpressionBuilder(params).build(conditions) || undefined;
 }
