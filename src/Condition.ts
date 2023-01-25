@@ -38,7 +38,7 @@ export namespace ConditionSet {
    * @param operands
    */
   export function and<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
-    return new CompositeCondition<T>('AND', operands);
+    return new CompositeCondition('AND', operands) as CompositeCondition<T>;
   }
 
   /**
@@ -46,7 +46,7 @@ export namespace ConditionSet {
    * @param operands
    */
   export function or<T, U extends T>(...operands: Array<ConditionSet<U>>): CompositeCondition<T> {
-    return new CompositeCondition<T>('OR', operands);
+    return new CompositeCondition('OR', operands) as CompositeCondition<T>;
   }
 }
 
@@ -376,3 +376,4 @@ export function buildKeyConditionParams<T, P extends Record<string, unknown>>(
   }
   return Object.assign(params, {KeyConditionExpression: expression}) as P & KeyConditionParams;
 }
+
