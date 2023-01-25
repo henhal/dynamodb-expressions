@@ -19,7 +19,7 @@ type ConditionValue<T> = T | Condition<T>;
 export type ConditionAttributes<T> = {
   [P in keyof T]?: ConditionValue<T[P]>;
 } & {
-  [path: string]: ConditionValue<any>;
+  [path: string]: ConditionValue<unknown>;
 };
 
 export interface ConditionParams extends Params {
