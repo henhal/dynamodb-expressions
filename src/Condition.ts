@@ -30,6 +30,10 @@ export interface KeyConditionParams extends Params {
   KeyConditionExpression: string;
 }
 
+export interface FilterParams extends Params {
+  FilterExpression: string;
+}
+
 export type ConditionSet<T> = ConditionAttributes<T> | CompositeCondition<T>;
 
 export namespace ConditionSet {
@@ -333,8 +337,8 @@ export class CompositeCondition<T> {
 
 /**
  * @deprecated Use buildConditionParams or buildKeyConditionParams
- * @param conditions
- * @param params
+ * @param conditions Condition set
+ * @param params in/out params; attribute params from the conditions will be inserted here
  */
 export function buildConditionExpression<T>(conditions: ConditionSet<T>, params: Partial<Params>): string | undefined {
   return new ConditionExpressionBuilder(params).build(conditions) || undefined;
@@ -375,5 +379,24 @@ export function buildKeyConditionParams<T, P extends Record<string, unknown>>(
     throw new Error(`Cannot build key condition expression for empty conditions`);
   }
   return Object.assign(params, {KeyConditionExpression: expression}) as P & KeyConditionParams;
+}
+
+/**
+ * Build filter params to be used for a scan() call to the DynamoDB client
+ * @param conditions Update conditions
+ * @param [params] Optional other params such as TableName, additional ExpressionAttributeNames etc.
+ *                 This object will be merged with the produced ConditionExpression and associated
+ *                 ExpressionAttributeNames/Values.
+ */
+export function buildFilterParams<T, P extends Record<string, unknown>>(
+    {conditions, params = {} as P}: {conditions: ConditionSet<T>, params?: P}
+): FilterParams & P {
+  const expression = buildConditionExpression(conditions, params);
+
+  if (!expression) {
+    throw new Error(`Cannot build condition expression for empty conditions`);
+  }
+
+  return Object.assign(params, {FilterExpression: expression}) as P & FilterParams;
 }
 
