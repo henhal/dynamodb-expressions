@@ -1,15 +1,17 @@
+import {CompositeCondition} from './CompositeCondition';
 import {ConditionExpressionBuilder} from './ConditionExpressionBuilder';
 import {Params} from './ExpressionBuilder';
 import ParamsBuilder from './ParamsBuilder';
 
 type Comparator = '=' | '<>' | '<' | '<=' | '>' | '>=';
-type Func = 'attribute_exists' | 'attribute_not_exists' | 'attribute_type' | 'begins_with' | 'contains' | 'size';
+type Func = 'attribute_exists' | 'attribute_not_exists' | 'attribute_type' | 'begins_with' | 'contains';
 
-type Operator = 'AND' | 'OR';
-const OPERATOR = Symbol('OPERATOR');
-const OPERANDS = Symbol('OPERANDS');
+type Operator = Comparator | Func | 'in' | 'between' | 'and' | 'or' | 'not';
 
-type ConditionValue<T> = T | Condition<T>;
+/**
+ * A simple value or a condition
+ */
+export type ConditionValue<T> = T | Condition<T>;
 
 /**
  * An object of key-value pairs where each key is an attribute name in the record and each value is either a
@@ -62,22 +64,78 @@ type EvaluateCondition<T> = (value: T) => boolean;
 
 export type AttributeType = 'S' | 'SS' | 'N' | 'NS' | 'B' | 'BS' | 'BOOL' | 'NULL' | 'L' | 'M';
 
+interface SerializedCondition {
+  readonly operator: Operator;
+  readonly operands: unknown[];
+}
+
+function isSerializedCondition(c: any): c is SerializedCondition {
+  return typeof c?.operator === 'string' &&
+      Array.isArray(c.operands) &&
+      c.operator in operatorMap;
+}
+
+const operatorMap: Record<Operator, keyof typeof Condition> = {
+  '=': 'eq',
+  '<>': 'neq',
+  '<': 'lt',
+  '<=': 'le',
+  '>': 'gt',
+  '>=': 'ge',
+  'in': 'in',
+  'between': 'between',
+  'attribute_exists': 'attributeExists',
+  'attribute_not_exists': 'attributeNotExists',
+  'attribute_type': 'attributeType',
+  'begins_with': 'beginsWith',
+  'contains': 'contains',
+  'and': 'and',
+  'or': 'or',
+  'not': 'not'
+};
+
+function parseCondition(c: SerializedCondition): Condition<unknown> {
+  const {operator, operands} = c;
+  const f = Condition[operatorMap[operator]] as any;
+
+  return f(...operands.map(o => isSerializedCondition(o) ? parseCondition(o) : o));
+}
+
 /**
  * A condition for a single attribute having the type T.
  * See https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.OperatorsAndFunctions.html
  */
-export class Condition<T> {
-  private constructor(readonly build: BuildConditionExpression, readonly evaluate: EvaluateCondition<T>) {
+export class Condition<T> implements SerializedCondition {
+  private constructor(
+      readonly operator: Operator,
+      readonly operands: unknown[],
+      readonly build: BuildConditionExpression,
+      readonly evaluate: EvaluateCondition<T>) {
+  }
+
+  /**
+   * Serialize to JSON. The resulting JSON may be parsed into a SerializedCondition object which may be passed to
+   * Condition.from() to return an equivalent Condition object.
+   *
+   * Example:
+   * const c = Condition.gt(7);
+   * const json = JSON.stringify(c);
+   * Condition.from(JSON.parse(json)); // equivalent to c
+   */
+  toJSON(): SerializedCondition {
+    const {operator, operands} = this;
+
+    return {operator, operands};
   }
 
   private static comparator<T>(operator: Comparator, value: T, evaluate: EvaluateCondition<T>): Condition<T> {
-    return new Condition<T>((key, builder) => ({
+    return new Condition<T>(operator, [value], (key, builder) => ({
       expression: `${builder.addOperand(key, 'name')} ${operator} ${builder.addOperand(value, 'value')}`
     }), evaluate);
   }
 
   private static func<T>(func: Func, args: unknown[], evaluate: EvaluateCondition<T>): Condition<T> {
-    return new Condition<T>((key, builder) => ({
+    return new Condition<T>(func, args, (key, builder) => ({
       expression: `${func}(${[
         builder.addOperand(key, 'name'),
         ...args.map((arg, i) => builder.addOperand(arg, 'value', `${func}_arg${i}`)),
@@ -86,12 +144,22 @@ export class Condition<T> {
   }
 
   /**
-   * Wrap a condition so that a literal value will be turned into an equality condition.
+   * Create a condition from a serialized condition. This enables serializing Condition objects into JSON and
+   * back again.
+   * @param c Condition object or literal value treated as an equality condition
+   */
+  static from(c: SerializedCondition): Condition<unknown>;
+  /**
+   * Wrap a value or a condition. A literal value will be turned into an equality condition.
    * If the given value is already a condition, it's returned as-is.
    * @param c Condition object or literal value treated as an equality condition
    */
-  static from<T>(c: ConditionValue<T>): Condition<T> {
-    return c instanceof Condition ? c : Condition.eq(c);
+  static from<T>(c: ConditionValue<T> ): Condition<T>;
+
+  static from(c: ConditionValue<any> | SerializedCondition): Condition<any> {
+    return c instanceof Condition ? c :
+        isSerializedCondition(c) ? parseCondition(c) :
+            Condition.eq(c);
   }
 
   /**
@@ -149,7 +217,7 @@ export class Condition<T> {
    * @param maxValue
    */
   static between<T>(minValue: T, maxValue: T): Condition<T> {
-    return new Condition<T>((key, builder) => ({
+    return new Condition<T>('between', [minValue, maxValue], (key, builder) => ({
       expression: `${builder.addOperand(key, 'name')} BETWEEN ${
           [minValue, maxValue]
               .map((operand, i) => builder.addOperand(operand, 'value', `between${i}`))
@@ -163,7 +231,7 @@ export class Condition<T> {
    * @param operands
    */
   static in<T>(operands: T[]): Condition<T> {
-    return new Condition<T>((key, builder) => ({
+    return new Condition<T>('in', [operands], (key, builder) => ({
       expression: `${builder.addOperand(key, 'name')} IN (${
           operands.map((operand, i) => builder.addOperand(operand, 'value', `in${i}`)).join(', ')})`
     }), v => operands.includes(v));
@@ -248,7 +316,7 @@ export class Condition<T> {
    */
   static not<T>(v: ConditionValue<T>): Condition<T> {
     const cond = Condition.from(v);
-    return new Condition((key, builder) => {
+    return new Condition('not', [v], (key, builder) => {
       const {expression} = cond.build(key, builder);
 
       return {
@@ -263,7 +331,7 @@ export class Condition<T> {
    */
   static and<T>(...operands: Array<ConditionValue<T>>): Condition<T> {
     const conditions = operands.map(op => Condition.from(op));
-    return new Condition((key, builder) => {
+    return new Condition('and', operands, (key, builder) => {
       return {
         expression: `(${conditions.map(c => c.build(key, builder).expression).join(' AND ')})`
       };
@@ -276,7 +344,7 @@ export class Condition<T> {
    */
   static or<T>(...operands: Array<ConditionValue<T>>): Condition<T> {
     const conditions = operands.map(op => Condition.from(op));
-    return new Condition((key, builder) => {
+    return new Condition('or', operands, (key, builder) => {
       return {
         expression: `(${conditions.map(c => c.build(key, builder).expression).join(' OR ')})`
       };
@@ -295,43 +363,6 @@ export class Condition<T> {
     }
 
     return this;
-  }
-}
-
-/**
- * A composite condition using AND or OR operator to combine multiple sub-conditions.
- */
-export class CompositeCondition<T> {
-  private readonly [OPERATOR]: Operator;
-  private readonly [OPERANDS]: Array<ConditionSet<T>> = [];
-
-  constructor(operator: Operator, operands: Array<ConditionSet<T>>) {
-    this[OPERATOR] = operator;
-    this[OPERANDS] = operands;
-  }
-
-  get operator(): Operator {
-    return this[OPERATOR];
-  }
-
-  get operands(): Array<ConditionSet<T>> {
-    return this[OPERANDS];
-  }
-
-  /**
-   * Create a new AND condition that combines this condition and the given operands
-   * @param operands
-   */
-  and(...operands: Array<ConditionSet<T>>): CompositeCondition<T> {
-    return new CompositeCondition<T>('AND', [this, ...operands]);
-  }
-
-  /**
-   * Create a new OR condition that combines this condition and the given operands
-   * @param operands
-   */
-  or(...operands: Array<ConditionSet<T>>): CompositeCondition<T> {
-    return new CompositeCondition<T>('OR', [this, ...operands]);
   }
 }
 
@@ -399,4 +430,3 @@ export function buildFilterParams<T, P extends Record<string, unknown>>(
 
   return Object.assign(params, {FilterExpression: expression}) as P & FilterParams;
 }
-

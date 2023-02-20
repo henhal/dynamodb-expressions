@@ -1,4 +1,4 @@
-import {Condition, ConditionSet} from '../src/Condition';
+import {buildConditionParams, Condition, ConditionSet} from '../src/Condition';
 import {ConditionExpressionBuilder} from '../src/ConditionExpressionBuilder';
 import {Operand} from '../src/Operand';
 
@@ -14,11 +14,15 @@ function matchExpression(c: ConditionSet<unknown>, exprPattern: RegExp, names: R
   expect(builder.params.ExpressionAttributeNames).toEqual(names);
 
   const [, ...escapedValues] = result;
+
   expect(builder.params.ExpressionAttributeValues).toEqual(values.length ? Object
       .fromEntries(escapedValues
       .map((v, i) => [v, values[i]])) : undefined);
 
 }
+const expressionMatcher = (exprPattern: RegExp, names: Record<string, string>, values: unknown[]) =>
+    (c: ConditionSet<unknown>) => matchExpression(c, exprPattern, names, values);
+
 describe('Condition tests', () => {
   it('Should build a simple condition', () => {
     matchExpression(
@@ -184,5 +188,32 @@ describe('Condition tests', () => {
         /^#a = (:cond_.*) AND \(#b = (:cond_.*) AND #b > (:cond_.*) AND #b < (:cond_.*)\)$/,
         {'#a': 'a', '#b': 'b'},
         [1, 2, 3, 4]);
+  });
+
+  it('Should serialize and deserialize a condition', () => {
+    const c1 = Condition.gt(42);
+
+    const json = JSON.stringify(c1);
+    const c2 = Condition.from(JSON.parse(json));
+
+    const matcher = expressionMatcher(/^#foo > (:cond_.*)$/, {
+      '#foo': 'foo'
+    }, [42]);
+
+    [c1, c2].forEach(foo => matcher({foo}));
+  });
+
+  it('Should serialize and deserialize a composite condition', () => {
+    //Math.random = () => 42;
+    const c1 = Condition.or(Condition.not(Condition.gt(42)), 100);
+
+    const json = JSON.stringify(c1);
+    const c2 = Condition.from(JSON.parse(json));
+
+    const matcher = expressionMatcher(/^\(NOT \(#foo > (:cond_.*)\) OR #foo = (:cond_.*)\)$/, {
+          '#foo': 'foo'
+        }, [42, 100]);
+
+    [c1, c2].forEach(foo => matcher({foo}));
   });
 });

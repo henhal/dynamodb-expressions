@@ -1,5 +1,6 @@
+import {CompositeCondition} from './CompositeCondition';
 import {ExpressionBuilder} from './ExpressionBuilder';
-import {CompositeCondition, Condition, ConditionAttributes, ConditionSet} from './Condition';
+import {Condition, ConditionAttributes, ConditionSet} from './Condition';
 
 export class ConditionExpressionBuilder<T> extends ExpressionBuilder<ConditionAttributes<T>> {
   private readonly conditions: string[] = [];
