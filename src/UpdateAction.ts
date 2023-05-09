@@ -39,7 +39,7 @@ export class UpdateAction<T> {
    * @param value Literal value to set, or a complex value that adds, subtracts, appends or conditionally sets a value if it exists
    * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET
    */
-  static set<T>(value: T | SetValue): UpdateAction<T> {
+  static set<T>(value: T | SetValue<T>): UpdateAction<T> {
     return new UpdateAction((key, builder) => {
       const v = value instanceof SetValue ? value : SetValue.value(value);
 
@@ -112,7 +112,7 @@ export class SetValue<T = unknown> {
    * Obtain a set expression which assigns a simple scalar value (SET #price = :val)
    * @param value
    */
-  static value<T>(value: T): SetValue {
+  static value<T>(value: T): SetValue<T> {
     return new SetValue((key, builder) => builder.addOperand(value, 'value', 'set'));
   }
 
@@ -177,15 +177,15 @@ export class SetValue<T = unknown> {
 
   /**
    * Obtain a set expression for a if_not_exists function (SET #price = if_not_exists(#price, :100))
-   * @param p Attribute name
-   * @param value Value to use if the attribute has no value
+   * @param path Attribute name
+   * @param defaultValue Value to use if the attribute has no value
    * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.PreventingAttributeOverwrites
    */
-  static ifNotExists<T>(p: string, value: T): SetValue<T> {
+  static ifNotExists<T>(path: string, defaultValue: T): SetValue<T> {
     return new SetValue((key, builder) => {
       const operands = [
-        builder.addOperand(p, 'name'),
-        builder.addOperand(value, 'value', 'ifnotexists')
+        builder.addOperand(path, 'name'),
+        builder.addOperand(defaultValue, 'value', 'ifnotexists')
       ];
 
       return `if_not_exists(${operands.join(', ')})`;

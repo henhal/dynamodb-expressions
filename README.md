@@ -81,8 +81,9 @@ Examples of more advanced operations:
   baz: UpdateAction.add(1), // increment number by 1
   mySet: UpdateAction.add(new Set([4])), // add 4 to mySet
   myOtherSet: UpdateAction.delete(new Set([5, 7])), // remove 5 and 7 from myOtherSet
-  myList: UpdateAction.set(SetValue.append([1, 2])), // append 1, 2 to myList
+  myList: UpdateAction.set(SetValue.append('mylist', [1, 2])), // append 1, 2 to myList
   qux: UpdateAction.set(SetValue.ifNotExists('qux', 42)), // Set qux to 42 if it doesn't exist 
+  abc: UpdateAction.set(SetValue.append(SetValue.ifNotExists('qux', ['hello']), ['world'])), // Set abc to the list stored in qux with 'world' appended to it; or if qux does not exist, default to a list containing 'hello' 
 }
 ```
 
@@ -229,3 +230,29 @@ true
 > console.log(c.evaluate(41))
 false
 ```
+
+### Pitfalls
+
+#### Name/Value ambiguities
+
+Many functions or operations in update or condition expressions support literal values as well as paths to other attributes
+of an item.
+There are some cases where the library receives a string argument and has to "guess" if that value is a string literal or 
+a path to an attribute, such as when applying a condition for `a` being less than or equal to `b`.
+In such cases, it's possible to explicitly mark a value as a path or a value, by prepending a `#` to a path or a `:` to
+a value. This also applies if a value contains a `#` character or a path contains a `:` character - then the strings _must_
+be prepended ("escaped") with `#` or `:`, respectively. 
+These prepended special characters are stripped away when the expressions are written.
+
+Examples:
+
+* Value of attribute `a` should be less than string literal `"b"`: `{a: Condition.lt('b')}`
+* Value of attribute `a` should be less than the value of attribute `b`: `{a: Condition.lt('#b')}`
+* Value of attribute `a` should be less than the value of attribute `:b`: `{a: Condition.lt('#:b')}`
+* Value of attribute `a` should be less than string literal `"#b"`: `{a: Condition.lt(':#b')}`
+* Value of attribute `a` should be less than string literal `":b"`: `{a: Condition.lt('::b')}`
+
+If relying on implicit path/value detection, a condition will typically assume that operands are values unless a `#`
+character is present, such as in `{a: Condition.between('a', 'z')}` where the operands are both string literals.
+
+Note also that there are a few cases where _only_ paths are expected, but where `#` is not required, such as `SetValue.ifNotExists(path, defaultValue)`
