@@ -5,6 +5,7 @@ import {Operand} from '../src/Operand';
 function matchExpression(action: UpdateAttributes<unknown>, exprPattern: RegExp, names: Record<string, string>, values: unknown[]) {
   const builder = new UpdateExpressionBuilder({});
   const expr = builder.build(action);
+
   expect(expr).toBeDefined();
   expect(expr).toMatch(exprPattern);
   const result = expr?.match(exprPattern) ?? [];
@@ -85,4 +86,43 @@ describe('Update action tests', () => {
     expect(expr).toBeUndefined();
   });
 
+  it('Should use list_append function in a SET expression with path as first argument', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.append('a', ['B', 'C']))},
+        /^SET #a = list_append\(#a, (:val_.*)\)$/,
+        {'#a': 'a'},
+        [['B', 'C']]);
+  });
+
+  it('Should use list_append function in a SET expression with path as second argument', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.append(['B', 'C'], 'a'))},
+        /^SET #a = list_append\((:val_.*), #a\)$/,
+        {'#a': 'a'},
+        [['B', 'C']]);
+  });
+
+  it('Should use list_append function in a SET expression with path as both arguments', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.append('a', 'b'))},
+        /^SET #a = list_append\(#a, #b\)$/,
+        {'#a': 'a', '#b': 'b'},
+        []);
+  });
+
+  it('Should use if_not_exists function in a SET expression', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.ifNotExists('a', 42))},
+        /^SET #a = if_not_exists\(#a, (:val_.*)\)$/,
+        {'#a': 'a'},
+        [42]);
+  });
+
+  it('Should use nested functions in a SET expression', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.append(SetValue.ifNotExists('b', ['A']), ['B', 'C']))},
+        /^SET #a = list_append\(if_not_exists\(#b, (:val_.*)\), (:val_.*)\)$/,
+        {'#a': 'a', '#b': 'b'},
+        [['A'], ['B', 'C']]);
+  });
 });
