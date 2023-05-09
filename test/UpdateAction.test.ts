@@ -86,7 +86,31 @@ describe('Update action tests', () => {
     expect(expr).toBeUndefined();
   });
 
-  it('Should use functions in a SET expression', () => {
+  it('Should use list_append function in a SET expression with path as first argument', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.append('a', ['B', 'C']))},
+        /^SET #a = list_append\(#a, (:val_.*)\)$/,
+        {'#a': 'a'},
+        [['B', 'C']]);
+  });
+
+  it('Should use list_append function in a SET expression with path as second argument', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.append(['B', 'C'], 'a'))},
+        /^SET #a = list_append\((:val_.*), #a\)$/,
+        {'#a': 'a'},
+        [['B', 'C']]);
+  });
+
+  it('Should use list_append function in a SET expression with path as both arguments', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.append('a', 'b'))},
+        /^SET #a = list_append\(#a, #b\)$/,
+        {'#a': 'a', '#b': 'b'},
+        []);
+  });
+
+  it('Should use if_not_exists function in a SET expression', () => {
     matchExpression(
         {a: UpdateAction.set(SetValue.ifNotExists('a', 42))},
         /^SET #a = if_not_exists\(#a, (:val_.*)\)$/,
