@@ -5,6 +5,7 @@ import {Operand} from '../src/Operand';
 function matchExpression(action: UpdateAttributes<unknown>, exprPattern: RegExp, names: Record<string, string>, values: unknown[]) {
   const builder = new UpdateExpressionBuilder({});
   const expr = builder.build(action);
+
   expect(expr).toBeDefined();
   expect(expr).toMatch(exprPattern);
   const result = expr?.match(exprPattern) ?? [];
@@ -85,4 +86,19 @@ describe('Update action tests', () => {
     expect(expr).toBeUndefined();
   });
 
+  it('Should use functions in a SET expression', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.ifNotExists('a', 42))},
+        /^SET #a = if_not_exists\(#a, (:val_.*)\)$/,
+        {'#a': 'a'},
+        [42]);
+  });
+
+  it('Should use nested functions in a SET expression', () => {
+    matchExpression(
+        {a: UpdateAction.set(SetValue.append(SetValue.ifNotExists('b', ['A']), ['B', 'C']))},
+        /^SET #a = list_append\(if_not_exists\(#b, (:val_.*)\), (:val_.*)\)$/,
+        {'#a': 'a', '#b': 'b'},
+        [['A'], ['B', 'C']]);
+  });
 });

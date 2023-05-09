@@ -1,6 +1,6 @@
 import {Params} from './ExpressionBuilder';
-import {ActionType, UpdateExpressionBuilder} from './UpdateExpressionBuilder';
 import ParamsBuilder from './ParamsBuilder';
+import {ActionType, UpdateExpressionBuilder} from './UpdateExpressionBuilder';
 
 type UpdateValue<V> = V | UpdateAction<V | void>;
 
@@ -75,7 +75,7 @@ export class UpdateAction<T> {
   }
 
   /**
-   * Obtain an UpdateAction for a DELETE action that removes an element from a set attribute
+   * Obtain an UpdateAction for a DELETE action that removes an element from a set
    * @param value
    * See https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.DELETE
    */
@@ -87,11 +87,24 @@ export class UpdateAction<T> {
   }
 }
 
+type PathOrValue<T> = T | string | SetValue<T>;
+
+function buildSetOperand<T>(key: string, value: PathOrValue<T>, builder: ParamsBuilder, prefix?: string) {
+  if (value instanceof SetValue) {
+    return value.build(key, builder);
+  }
+
+  if (typeof value === 'string') {
+    return builder.addOperand(value, 'name', prefix);
+  }
+  return builder.addOperand(value, 'value', prefix);
+}
+
 /**
  * A complex set value using DynamoDB SET functions
  * See https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET
  */
-export class SetValue {
+export class SetValue<T = unknown> {
   private constructor(readonly build: (key: string, builder: ParamsBuilder) => string) {
   }
 
@@ -114,10 +127,10 @@ export class SetValue {
    * @param n2
    * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.IncrementAndDecrement
    */
-  static add(n1: number | string, n2: number | string): SetValue {
+  static add(n1: PathOrValue<number>, n2: PathOrValue<number>): SetValue<number> {
     return new SetValue((key, builder) => {
       const operands = [n1, n2].map((n, i) =>
-          typeof n === 'string' ? builder.addOperand(n, 'name') : builder.addOperand(n, 'value', `add${i}`));
+          buildSetOperand(key, n, builder, `add${i}`));
 
       return operands.join(' + ');
     });
@@ -134,10 +147,10 @@ export class SetValue {
    * @param n2
    * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.IncrementAndDecrement
    */
-  static subtract(n1: number | string, n2: number | string): SetValue {
+  static subtract(n1: PathOrValue<number>, n2: PathOrValue<number>): SetValue<number> {
     return new SetValue((key, builder) => {
       const operands = [n1, n2].map((n, i) =>
-          typeof n === 'string' ? builder.addOperand(n, 'name') : builder.addOperand(n, 'value', `sub${i}`));
+          buildSetOperand(key, n, builder, `sub${i}`));
 
       return operands.join(' - ');
     });
@@ -153,10 +166,10 @@ export class SetValue {
    * @param list2
    * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.UpdatingListElements
    */
-  static append<T>(list1: Array<T> | string, list2: Array<T> | string): SetValue {
+  static append<T>(list1: PathOrValue<T[]>, list2: PathOrValue<T[]>): SetValue<T[]> {
     return new SetValue((key, builder) => {
       const operands = [list1, list2].map((list, i) =>
-          typeof list === 'string' ? builder.addOperand(list, 'name') : builder.addOperand(list, 'value', `append${i}`));
+          buildSetOperand(key, list, builder, `append${i}`));
 
       return `list_append(${operands.join(', ')})`;
     });
@@ -168,9 +181,12 @@ export class SetValue {
    * @param value Value to use if the attribute has no value
    * @see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.PreventingAttributeOverwrites
    */
-  static ifNotExists<T>(p: string, value: T): SetValue {
+  static ifNotExists<T>(p: string, value: T): SetValue<T> {
     return new SetValue((key, builder) => {
-      const operands = [builder.addOperand(p, 'name'), builder.addOperand(value, 'value', 'ifnotexists')];
+      const operands = [
+        builder.addOperand(p, 'name'),
+        builder.addOperand(value, 'value', 'ifnotexists')
+      ];
 
       return `if_not_exists(${operands.join(', ')})`;
     });
