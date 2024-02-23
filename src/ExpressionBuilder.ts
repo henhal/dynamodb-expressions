@@ -5,6 +5,11 @@ export interface Params {
   ExpressionAttributeValues: Record<string, unknown>;
 }
 
+function validateKey(key: string) {
+  // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ExpressionAttributeNames.html
+  return key.replace(/[^a-zA-Z0-9_]/g, '');
+}
+
 function addUniqueMapping(values: Record<string, unknown>, key: string, value: unknown) {
   let uniqueKey = key;
 
@@ -46,7 +51,7 @@ export abstract class ExpressionBuilder<A extends Record<string, unknown>> imple
     let prefix = '';
     return path.split('.').map(part => {
       const [key, ...elements] = part.split('[');
-      const escapedName = addUniqueMapping(names, `#${prefix}${key}`, key);
+      const escapedName = addUniqueMapping(names, `#${prefix}${validateKey(key)}`, key);
       prefix += `${part}_`;
 
       return [escapedName, ...elements].join('[');
@@ -56,7 +61,7 @@ export abstract class ExpressionBuilder<A extends Record<string, unknown>> imple
   protected addValue(value: unknown, prefix = ''): string {
     const values = this.params.ExpressionAttributeValues = this.params.ExpressionAttributeValues || {};
 
-    return addUniqueMapping(values, `:${prefix}`, value)
+    return addUniqueMapping(values, `:${prefix}`, value);
   }
 
   abstract build(attributes: A): string | undefined;

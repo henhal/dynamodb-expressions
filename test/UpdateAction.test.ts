@@ -2,18 +2,29 @@ import {SetValue, UpdateAction, UpdateAttributes} from '../src/UpdateAction';
 import {UpdateExpressionBuilder} from '../src/UpdateExpressionBuilder';
 import {Operand} from '../src/Operand';
 
-function matchExpression(action: UpdateAttributes<unknown>, exprPattern: RegExp, names: Record<string, string>, values: unknown[]) {
+function matchExpression(action: UpdateAttributes<unknown>, exprPattern: RegExp, names: Record<string, string> | string[], values: unknown[]) {
   const builder = new UpdateExpressionBuilder({});
   const expr = builder.build(action);
+
+  //console.log(expr, builder.params);
 
   expect(expr).toBeDefined();
   expect(expr).toMatch(exprPattern);
   const result = expr?.match(exprPattern) ?? [];
   expect(result).toBeDefined();
 
-  expect(builder.params.ExpressionAttributeNames).toEqual(names);
+  const [, ...groups] = result;
+  const escapedNames = groups.filter(g => g.startsWith('#'));
+  const escapedValues = groups.filter(g => g.startsWith(':'));
 
-  const [, ...escapedValues] = result;
+  if (Array.isArray(names)) {
+    expect(builder.params.ExpressionAttributeNames).toEqual(names.length ? Object
+      .fromEntries(escapedNames
+        .map((n, i) => [n, names[i]])) : undefined);
+  } else {
+    expect(builder.params.ExpressionAttributeNames).toEqual(names);
+  }
+
   expect(builder.params.ExpressionAttributeValues).toEqual(values.length ? Object
       .fromEntries(escapedValues
       .map((v, i) => [v, values[i]])) : undefined);
@@ -124,5 +135,75 @@ describe('Update action tests', () => {
         /^SET #a = list_append\(if_not_exists\(#b, (:val_.*)\), (:val_.*)\)$/,
         {'#a': 'a', '#b': 'b'},
         [['A'], ['B', 'C']]);
+  });
+
+  describe('Special attribute names/values', () => {
+    it('Should build a SET update action referring to the value of another attribute name using #', () => {
+      matchExpression(
+        {a: '#b'},
+        /^SET #a = #b$/,
+        {'#a': 'a', '#b': 'b'},
+        []);
+    });
+
+    it('Should build a SET update action referring to the value of another attribute name which starts with a :,' +
+      ' using #', () => {
+      matchExpression(
+        {a: '#:b'},
+        /^SET #a = #b$/,
+        {'#a': 'a', '#b': ':b'},
+        []);
+    });
+
+    it('Should build a SET update action referring to the value of another attribute name which starts with a #,' +
+      '  using #', () => {
+      matchExpression(
+        {a: '##foo'},
+        /^SET #a = #foo$/,
+        {'#a': 'a', '#foo': '#foo'},
+        []);
+    });
+
+    it('Should build a SET update action referring to the value of another attribute name which contains' +
+      ' non-alphanumeric characters, using #', () => {
+      matchExpression(
+        {a: '#%foo-42*%'},
+        /^SET #a = #foo42$/,
+        {'#a': 'a', '#foo42': '%foo-42*%'},
+        []);
+    });
+
+    it('Should build a SET update action referring to the value of other attribute names which contains' +
+      ' non-alphanumeric characters causing a name conflict, using #', () => {
+      matchExpression(
+        {a: '#foobar', b: '#foo/bar'},
+        /^SET (#a) = (#foobar), (#b) = (#.*)$/,
+        ['a', 'foobar', 'b', 'foo/bar'],
+        []);
+    });
+
+    it('Should build a SET update action with a value using explicit value prefix :', () => {
+      matchExpression(
+        {a: ':the_value'},
+        /^SET #a = (:val_.*)$/,
+        {'#a': 'a'},
+        ['the_value']);
+    });
+
+    it('Should build a SET update action with a value starting with a :', () => {
+      matchExpression(
+        {a: '::the_value'},
+        /^SET #a = (:val_.*)$/,
+        {'#a': 'a'},
+        [':the_value']);
+    });
+
+    it('Should build a SET update action with a value starting with a #', () => {
+      matchExpression(
+        {a: ':#the_value'},
+        /^SET #a = (:val_.*)$/,
+        {'#a': 'a'},
+        ['#the_value']);
+    });
   });
 });
