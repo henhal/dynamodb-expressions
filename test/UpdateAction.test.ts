@@ -182,6 +182,14 @@ describe('Update action tests', () => {
         []);
     });
 
+    it('Should build a SET update action changing a nested attribute', () => {
+      matchExpression(
+        {'a.b.c[0].d': 'foo'},
+        /^SET #a\.#a_b\.#a_b_c\[0\]\.#a_b_c0_d = (:val_.*)$/,
+        {'#a': 'a', '#a_b': 'b', '#a_b_c': 'c', '#a_b_c0_d': 'd'},
+        ['foo']);
+    });
+
     it('Should build a SET update action with a value using explicit value prefix :', () => {
       matchExpression(
         {a: ':the_value'},

@@ -52,7 +52,7 @@ export abstract class ExpressionBuilder<A extends Record<string, unknown>> imple
     return path.split('.').map(part => {
       const [key, ...elements] = part.split('[');
       const escapedName = addUniqueMapping(names, `#${prefix}${validateKey(key)}`, key);
-      prefix += `${part}_`;
+      prefix += `${validateKey(part)}_`;
 
       return [escapedName, ...elements].join('[');
     }).join('.');
